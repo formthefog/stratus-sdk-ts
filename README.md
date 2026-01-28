@@ -720,9 +720,9 @@ Result: Final compressed vector (Uint8Array)
 
 ## 🌐 M-JEPA-G Integration
 
-**Drop M-JEPA-G into your existing stack in 3 lines of code.**
+**Add a planning layer to your LLM agent in 3 lines of code.**
 
-M-JEPA-G is a world model that predicts what happens before you act - perfect for agents, planning, and multi-step reasoning. The SDK makes it **stupidly simple** to integrate.
+M-JEPA-G is a world model that predicts action sequences **before** you execute - giving your GPT-4/Claude agent a "brain" for planning. The SDK makes it **stupidly simple** to integrate.
 
 ### Common Use Cases
 
@@ -757,27 +757,38 @@ if (result.summary.goalAchieved && result.summary.qualityScore > 90) {
 }
 ```
 
-**3. Replace Slow LLM Reasoning**
+**3. Add Planning Layer to Your LLM**
 ```typescript
-// Before: GPT-4 reasoning (8 seconds, $0.12)
-const gpt = await openai.chat.completions.create({
-  messages: [{ role: 'user', content: 'Think step by step...' }],
+// Before: LLM plans and executes (slow, expensive, error-prone)
+const response = await openai.chat.completions.create({
+  messages: [{ role: 'user', content: 'Book a flight to NYC and find a hotel' }],
   model: 'gpt-4',
 });
+await executeActions(response);  // Hope it works!
 
-// After: M-JEPA-G (120ms, $0.0008)
-const mjepa = await client.chat.completions.create({
-  messages: [{ role: 'user', content: 'Think step by step...' }],
-  model: 'stratus-x1-ac',
+// After: M-JEPA-G plans, your LLM executes (fast, cheap, validated)
+const plan = await client.rollout({
+  goal: 'Book flight and hotel for NYC',
+  initial_state: 'On travel site',
+  max_steps: 10
 });
+
+// Validate before executing
+if (plan.summary.outcome === 'success') {
+  for (const step of plan.predictions) {
+    await yourLLM.execute(step.action.action_text);  // GPT-4, Claude, etc.
+  }
+}
 ```
 
-### Why M-JEPA-G?
+### Why M-JEPA-G + Your LLM?
 
-- **10-100x faster** than reasoning with LLMs (120ms vs 5-20s)
-- **10x cheaper** - $0.10 per 1M tokens vs $3-15 for GPT-4/Claude
-- **More accurate** for planning - predicts states, not just text
-- **OpenAI-compatible** - swap your client, keep your code
+M-JEPA-G handles **planning**, your LLM handles **execution**. Best of both worlds:
+
+- **Fast planning** - M-JEPA-G predicts action sequences in 120ms (vs 5-20s LLM reasoning)
+- **Cheaper at scale** - $0.10 per 1M planning tokens, use your LLM budget for execution
+- **More reliable** - World model validates plans before expensive LLM calls
+- **Keep your LLM** - Works with GPT-4, Claude, or any model you prefer
 
 ### Drop-In Replacement for OpenAI
 
@@ -929,32 +940,41 @@ console.log(`Quality: ${best.summary.qualityScore}/100`);
 console.log(`Steps: ${best.summary.actions.join(' → ')}`);
 ```
 
-### Why M-JEPA-G Over GPT/Claude?
+### How M-JEPA-G Complements Your LLM
 
-**Speed:**
+**The Pattern:** Plan with M-JEPA-G, Execute with Your LLM
+
 ```typescript
-// GPT-4 reasoning: 5-20 seconds
-const start = Date.now();
-const gpt = await openai.chat.completions.create({ ... });
-console.log(`GPT-4: ${Date.now() - start}ms`); // ~8000ms
+// 1. M-JEPA-G generates the plan (120ms, $0.0001)
+const plan = await mjepaClient.rollout({
+  goal: "Book flight and hotel for NYC trip",
+  initial_state: "On travel site homepage",
+  max_steps: 10
+});
 
-// M-JEPA-G: 100-300ms
-const start2 = Date.now();
-const mjepa = await client.chat.completions.create({ ... });
-console.log(`M-JEPA-G: ${Date.now() - start2}ms`); // ~120ms
+// 2. Your LLM executes each step (using GPT-4, Claude, etc.)
+for (const step of plan.predictions) {
+  await yourLLM.execute(step.action.action_text);
+}
 ```
 
-**Cost:**
-- GPT-4: $15 per 1M tokens
-- Claude Sonnet: $3 per 1M tokens
-- M-JEPA-G: **$0.10 per 1M tokens** (30x cheaper than Claude, 150x cheaper than GPT-4)
+**Why This Works:**
+- **Planning is cheap** - M-JEPA-G: $0.10 per 1M tokens (30x cheaper than Claude)
+- **Execution quality** - Use GPT-4/Claude for what they're best at: language & interaction
+- **Faster iteration** - Validate plans before expensive LLM calls
+- **Fewer retries** - World model catches errors before execution
 
-**When to Use:**
-- ✅ Planning multi-step workflows
-- ✅ Predicting outcomes before executing
-- ✅ Agent action validation
-- ✅ High-frequency reasoning tasks
-- ✅ Cost-sensitive production deployments
+**Use M-JEPA-G For:**
+- ✅ Multi-step workflow planning
+- ✅ Predicting action sequences before execution
+- ✅ Validating agent plans (catch errors early)
+- ✅ High-frequency planning tasks
+
+**Use Your LLM For:**
+- ✅ Executing the validated plan
+- ✅ Natural language generation
+- ✅ Complex reasoning and creativity
+- ✅ Domain-specific knowledge
 
 ### Production-Ready Out of the Box
 
