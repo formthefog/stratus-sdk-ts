@@ -718,6 +718,393 @@ Result: Final compressed vector (Uint8Array)
 
 ---
 
+## 🌐 M-JEPA-G Integration
+
+**Drop M-JEPA-G into your existing stack in 3 lines of code.**
+
+M-JEPA-G is a world model that predicts what happens before you act - perfect for agents, planning, and multi-step reasoning. The SDK makes it **stupidly simple** to integrate.
+
+### Common Use Cases
+
+**1. Agent Planning (LangChain, AutoGPT, etc.)**
+```typescript
+// Before executing actions, ask M-JEPA-G what will happen
+const plan = await client.rollout({
+  goal: 'Book a flight to NYC',
+  initial_state: 'On airline homepage',
+  max_steps: 5,
+});
+
+// Execute only if plan looks good
+if (plan.summary.outcome === 'success') {
+  await agent.execute(plan.predictions);
+}
+```
+
+**2. Workflow Validation**
+```typescript
+// Validate multi-step workflows before running them
+const result = await predictor.predict({
+  initialState: 'Database: 1000 users, API: healthy',
+  goal: 'Migrate to new database without downtime',
+  maxSteps: 10,
+});
+
+if (result.summary.goalAchieved && result.summary.qualityScore > 90) {
+  console.log('Safe to proceed');
+} else {
+  console.log('Plan has issues:', result.summary.outcome);
+}
+```
+
+**3. Replace Slow LLM Reasoning**
+```typescript
+// Before: GPT-4 reasoning (8 seconds, $0.12)
+const gpt = await openai.chat.completions.create({
+  messages: [{ role: 'user', content: 'Think step by step...' }],
+  model: 'gpt-4',
+});
+
+// After: M-JEPA-G (120ms, $0.0008)
+const mjepa = await client.chat.completions.create({
+  messages: [{ role: 'user', content: 'Think step by step...' }],
+  model: 'stratus-x1-ac',
+});
+```
+
+### Why M-JEPA-G?
+
+- **10-100x faster** than reasoning with LLMs (120ms vs 5-20s)
+- **10x cheaper** - $0.10 per 1M tokens vs $3-15 for GPT-4/Claude
+- **More accurate** for planning - predicts states, not just text
+- **OpenAI-compatible** - swap your client, keep your code
+
+### Drop-In Replacement for OpenAI
+
+**Before (OpenAI):**
+```typescript
+import OpenAI from 'openai';
+
+const client = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
+
+const response = await client.chat.completions.create({
+  messages: [{ role: 'user', content: 'Plan the next steps.' }],
+  model: 'gpt-4',
+});
+```
+
+**After (M-JEPA-G):**
+```typescript
+import { MJepaGClient } from '@stratus/sdk';
+
+const client = new MJepaGClient({
+  apiKey: process.env.STRATUS_API_KEY,
+});
+
+const response = await client.chat.completions.create({
+  messages: [{ role: 'user', content: 'Plan the next steps.' }],
+  model: 'stratus-x1-ac',
+});
+```
+
+**That's it.** Same API, 10x faster, 10x cheaper.
+
+### Add to Your Agent Framework
+
+**LangChain:**
+```typescript
+import { MJepaGClient } from '@stratus/sdk';
+import { ChatOpenAI } from 'langchain/chat_models/openai';
+
+// Your existing LangChain setup
+const llm = new ChatOpenAI({ ... });
+
+// Add M-JEPA-G for planning
+const planner = new MJepaGClient({
+  apiKey: process.env.STRATUS_API_KEY,
+});
+
+// Use M-JEPA-G to validate actions before executing
+const result = await planner.rollout({
+  goal: 'Complete the user task',
+  initial_state: 'Current context: ...',
+  max_steps: 5,
+});
+
+// Execute the validated plan with your LLM
+for (const step of result.predictions) {
+  await llm.call([{ role: 'user', content: step.action.action_text }]);
+}
+```
+
+**AutoGPT / Agent Frameworks:**
+```typescript
+import { MJepaGClient, TrajectoryPredictor } from '@stratus/sdk';
+
+class MyAgent {
+  private planner: TrajectoryPredictor;
+
+  constructor() {
+    const client = new MJepaGClient({
+      apiKey: process.env.STRATUS_API_KEY,
+    });
+    this.planner = new TrajectoryPredictor(client);
+  }
+
+  async executeTask(goal: string) {
+    // 1. Use M-JEPA-G to plan
+    const plan = await this.planner.predict({
+      initialState: this.getCurrentState(),
+      goal,
+      maxSteps: 10,
+    });
+
+    // 2. Execute validated plan
+    for (const action of plan.summary.actions) {
+      await this.execute(action);
+    }
+
+    return plan.summary.goalAchieved;
+  }
+}
+```
+
+**Vercel AI SDK:**
+```typescript
+import { MJepaGClient } from '@stratus/sdk';
+import { streamText } from 'ai';
+
+const client = new MJepaGClient({
+  apiKey: process.env.STRATUS_API_KEY,
+});
+
+// Use M-JEPA-G for reasoning, then stream text with your LLM
+const plan = await client.chat.completions.create({
+  messages: [{ role: 'user', content: 'Plan the workflow' }],
+  model: 'stratus-x1-ac',
+});
+
+// Continue with your normal flow
+const result = await streamText({
+  model: yourLLM,
+  prompt: `Execute this plan: ${plan.choices[0].message.content}`,
+});
+```
+
+### Real-Time Planning with Streaming
+
+Stream plans as they're generated (just like ChatGPT):
+
+```typescript
+// Drop-in streaming (same as OpenAI)
+for await (const chunk of client.chat.completions.stream({
+  messages: [{ role: 'user', content: 'Plan the deployment steps.' }],
+  model: 'stratus-x1-ac',
+})) {
+  process.stdout.write(chunk.choices[0]?.delta?.content || '');
+}
+```
+
+### Parallel Planning (Explore Multiple Paths)
+
+```typescript
+import { TrajectoryPredictor } from '@stratus/sdk';
+
+const predictor = new TrajectoryPredictor(client);
+
+// Try 3 different approaches in parallel
+const plans = await predictor.predictMany([
+  { initialState: 'current state', goal: 'Approach A: Fast path', maxSteps: 3 },
+  { initialState: 'current state', goal: 'Approach B: Safe path', maxSteps: 5 },
+  { initialState: 'current state', goal: 'Approach C: Optimal', maxSteps: 4 },
+]);
+
+// Pick the best one automatically
+const best = predictor.findOptimal(plans);
+
+console.log(`Using plan: ${best.summary.outcome}`);
+console.log(`Quality: ${best.summary.qualityScore}/100`);
+console.log(`Steps: ${best.summary.actions.join(' → ')}`);
+```
+
+### Why M-JEPA-G Over GPT/Claude?
+
+**Speed:**
+```typescript
+// GPT-4 reasoning: 5-20 seconds
+const start = Date.now();
+const gpt = await openai.chat.completions.create({ ... });
+console.log(`GPT-4: ${Date.now() - start}ms`); // ~8000ms
+
+// M-JEPA-G: 100-300ms
+const start2 = Date.now();
+const mjepa = await client.chat.completions.create({ ... });
+console.log(`M-JEPA-G: ${Date.now() - start2}ms`); // ~120ms
+```
+
+**Cost:**
+- GPT-4: $15 per 1M tokens
+- Claude Sonnet: $3 per 1M tokens
+- M-JEPA-G: **$0.10 per 1M tokens** (30x cheaper than Claude, 150x cheaper than GPT-4)
+
+**When to Use:**
+- ✅ Planning multi-step workflows
+- ✅ Predicting outcomes before executing
+- ✅ Agent action validation
+- ✅ High-frequency reasoning tasks
+- ✅ Cost-sensitive production deployments
+
+### Production-Ready Out of the Box
+
+**Automatic Retries:**
+```typescript
+// Built into the client - retries failed requests automatically
+const client = new MJepaGClient({
+  apiKey: process.env.STRATUS_API_KEY,
+  retries: 3,  // Exponential backoff
+  timeout: 30000,
+});
+
+// No extra code needed - just works
+const response = await client.chat.completions.create({ ... });
+```
+
+**Caching (Reduce Costs):**
+```typescript
+import { SimpleCache } from '@stratus/sdk';
+
+const cache = new SimpleCache(300); // 5-min TTL
+
+async function getPlan(goal: string) {
+  // Check cache first
+  const cached = cache.get(goal);
+  if (cached) return cached;
+
+  // Call API if not cached
+  const result = await client.rollout({ goal, initial_state: '...' });
+  cache.set(goal, result);
+  return result;
+}
+```
+
+**Rate Limiting:**
+```typescript
+import { RateLimiter } from '@stratus/sdk';
+
+const limiter = new RateLimiter(10); // 10 req/sec
+
+// Automatically throttles requests
+await limiter.wait();
+const response = await client.chat.completions.create({ ... });
+```
+
+**Health Checks:**
+```typescript
+import { HealthChecker } from '@stratus/sdk';
+
+const health = new HealthChecker(client, {
+  onUnhealthy: () => {
+    // Notify your monitoring (Sentry, DataDog, etc.)
+    console.error('M-JEPA-G API is down!');
+  },
+});
+
+// Check on startup
+const status = await health.check();
+if (!status.healthy) {
+  throw new Error('API unavailable');
+}
+
+// Monitor continuously
+health.startMonitoring(); // Checks every 60s
+```
+
+### Automatic Compression (Store 15x Less)
+
+M-JEPA-G embeddings are **automatically compressed** when you use the client:
+
+```typescript
+const client = new MJepaGClient({
+  apiKey: process.env.STRATUS_API_KEY,
+  compressionProfile: 'Medium',  // 16x compression, 99.7% quality
+});
+
+// Embeddings are compressed behind the scenes
+const response = await client.chat.completions.create({ ... });
+
+// Storage savings:
+console.log(client.getCompressionRatio()); // "16.8x"
+console.log(client.getQualityScore());     // 99.7
+```
+
+**When to Change Compression:**
+
+```typescript
+// Production (default): Medium - 16x compression, 99.7% quality
+const client = new MJepaGClient({ compressionProfile: 'Medium' });
+
+// High accuracy tasks: Low - 15x compression, 99.9% quality
+const client = new MJepaGClient({ compressionProfile: 'Low' });
+
+// Cost-sensitive: High - 18x compression, 99.5% quality
+const client = new MJepaGClient({ compressionProfile: 'High' });
+
+// Maximum savings: VeryHigh - 20x compression, 99.0% quality
+const client = new MJepaGClient({ compressionProfile: 'VeryHigh' });
+```
+
+**You don't need to think about it** - just set the profile once and forget it.
+
+### Try It Now
+
+```bash
+npm install @stratus/sdk
+export STRATUS_API_KEY=your-key-here
+node demo-mjepa.js
+```
+
+Output shows:
+- ✅ Health check (API status)
+- ✅ Chat completion (OpenAI-compatible)
+- ✅ Trajectory prediction (multi-step planning)
+- ✅ Compression demo (all quality levels)
+- ✅ Batch planning (parallel execution)
+- ✅ Model comparison (M-JEPA-G vs GPT/Claude)
+
+### Complete API
+
+**MJepaGClient** (OpenAI-compatible)
+```typescript
+// Same API as OpenAI
+client.chat.completions.create({ messages, model })
+client.chat.completions.stream({ messages, model })
+
+// M-JEPA-G specific (state prediction)
+client.rollout({ goal, initial_state, max_steps })
+client.health()
+```
+
+**TrajectoryPredictor** (high-level planning)
+```typescript
+predictor.predict({ initialState, goal, maxSteps })
+predictor.predictMany([...]) // Parallel
+predictor.findOptimal(plans) // Pick best
+```
+
+**Production Utilities**
+```typescript
+new SimpleCache(ttlSeconds)       // Cache results
+new RateLimiter(reqPerSec)        // Throttle requests
+new HealthChecker(client, ...)    // Monitor API
+retryWithBackoff(fn, options)     // Auto-retry
+```
+
+That's the whole API. Simple.
+
+---
+
 ## 🧪 Testing
 
 ### Run Demo
