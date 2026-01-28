@@ -109,6 +109,175 @@ const restored = decompressBatch(compressed);
 
 ---
 
+## 🔬 Quality Analyzer
+
+**Verify compression quality before deploying to production!**
+
+The Quality Analyzer provides comprehensive metrics to evaluate how well compression preserves your embeddings' semantic properties.
+
+### Quick Example
+
+```typescript
+import { compress, decompress, compressBatch, decompressBatch, analyzeQuality } from '@stratus/sdk';
+
+// Compress your embeddings
+const compressed = compressBatch(embeddings);
+const restored = decompressBatch(compressed);
+
+// Analyze quality
+const report = analyzeQuality(embeddings, restored);
+
+console.log(report.summary);
+// "Quality Analysis: GOOD (Overall Score: 97.2%). Cosine similarity: 99.23%, Recall@10: 95.8%. Use Medium compression (current)"
+
+console.log(`Similarity: ${(report.metrics.cosineSimilarity.mean * 100).toFixed(2)}%`);
+console.log(`Ranking preserved: ${(report.metrics.rankingPreservation.recallAt10 * 100).toFixed(1)}%`);
+```
+
+### What It Measures
+
+| Metric Category | What It Tells You |
+|-----------------|-------------------|
+| **Similarity Metrics** | How close compressed vectors are to originals (cosine, euclidean, manhattan) |
+| **Ranking Preservation** | Whether search results stay the same (recall@K, NDCG) |
+| **Distribution Metrics** | Whether vector distribution is preserved (KL divergence, Wasserstein) |
+| **Dimension Errors** | Per-dimension compression accuracy |
+| **Overall Score** | Weighted quality score (0-1) with recommendation |
+
+### Detailed Example
+
+```typescript
+import { analyzeQuality, CompressionLevel } from '@stratus/sdk';
+
+// Test different compression levels on your data
+const levels = [
+  CompressionLevel.Low,
+  CompressionLevel.Medium,
+  CompressionLevel.High
+];
+
+for (const level of levels) {
+  const compressed = compressBatch(embeddings, { level });
+  const restored = decompressBatch(compressed);
+
+  const report = analyzeQuality(embeddings, restored, {
+    rankingQueries: 100,  // Use 100 vectors as search queries
+    includeDimensionAnalysis: true,  // Detailed per-dimension analysis
+    sampleSize: 1000  // Analyze subset (faster)
+  });
+
+  console.log(`\n${level} Compression:`);
+  console.log(`  Quality: ${report.metrics.recommendation}`);
+  console.log(`  Similarity: ${(report.metrics.cosineSimilarity.mean * 100).toFixed(2)}%`);
+  console.log(`  Recall@10: ${(report.metrics.rankingPreservation.recallAt10 * 100).toFixed(1)}%`);
+  console.log(`  Compression ratio: ${report.metrics.overallQuality.toFixed(2)}`);
+
+  // Check warnings
+  if (report.warnings.length > 0) {
+    console.log(`  ⚠️ Warnings:`, report.warnings);
+  }
+
+  // Get recommendations
+  console.log(`  💡 ${report.recommendations[0]}`);
+}
+```
+
+### Quality Report Structure
+
+```typescript
+interface QualityReport {
+  summary: string;  // One-line summary
+
+  metrics: {
+    // Similarity metrics
+    cosineSimilarity: {
+      mean: number;      // Average similarity
+      min: number;       // Worst case
+      max: number;       // Best case
+      stddev: number;    // Consistency
+      percentile95: number;
+      percentile99: number;
+    };
+
+    // Ranking preservation (search quality)
+    rankingPreservation: {
+      recallAt10: number;   // Top-10 overlap (0-1)
+      recallAt50: number;   // Top-50 overlap
+      recallAt100: number;  // Top-100 overlap
+      ndcg: number;         // Ranking quality score
+      spearmanCorrelation: number;  // Ranking correlation
+    };
+
+    // Distribution metrics
+    distributionShift: {
+      klDivergence: number;    // Distribution similarity
+      wasserstein: number;     // Distribution distance
+      meanShift: number;       // Mean value change
+      varianceRatio: number;   // Variance preservation
+    };
+
+    // Overall assessment
+    overallQuality: number;  // 0-1 score
+    recommendation: 'excellent' | 'good' | 'acceptable' | 'poor';
+    suggestedLevel: string;  // Compression level advice
+  };
+
+  warnings: string[];         // Issues detected
+  recommendations: string[];  // What to do
+  timestamp: string;
+  sampleSize: number;
+}
+```
+
+### When to Use Quality Analyzer
+
+✅ **Before deploying to production** - Verify compression works for your embeddings
+✅ **Choosing compression level** - Find optimal quality/size trade-off
+✅ **After model updates** - Ensure new embeddings compress well
+✅ **Debugging search quality** - Investigate ranking preservation issues
+✅ **Compliance/auditing** - Document quality metrics for stakeholders
+
+### Understanding The Metrics
+
+#### Cosine Similarity
+- **Goal**: > 99% (excellent), > 97% (good), > 95% (acceptable)
+- **Meaning**: How similar compressed vectors are to originals
+- **Impact**: Directly affects search relevance
+
+#### Recall@K
+- **Goal**: > 95% at K=10 (excellent), > 90% (good)
+- **Meaning**: % of top-K results preserved after compression
+- **Impact**: Search result quality
+
+#### NDCG (Normalized Discounted Cumulative Gain)
+- **Goal**: > 0.95 (excellent), > 0.90 (good)
+- **Meaning**: Ranking quality preservation
+- **Impact**: Result ordering accuracy
+
+#### Distribution Metrics
+- **KL Divergence**: Lower is better (< 0.1 excellent)
+- **Wasserstein Distance**: Lower is better
+- **Variance Ratio**: Close to 1.0 is best (0.9-1.1 excellent)
+
+### Run Quality Demo
+
+```bash
+# Build SDK
+npm run build
+
+# Run quality analysis demo
+node demo-quality.js
+```
+
+**Demo output shows:**
+- Analysis for all 4 compression levels
+- Detailed metrics for each level
+- Warnings and recommendations
+- Size comparison
+- Production readiness assessment
+
+---
+
 ## 📚 API Reference
 
 ### Core Functions
@@ -244,6 +413,140 @@ const restored = decompress(compressed);
 const similarity = cosineSimilarity(original, restored);
 console.log(`Quality: ${(similarity * 100).toFixed(2)}%`); // ~99.5%
 ```
+
+---
+
+### Quality Analysis Functions
+
+#### `analyzeQuality(original, restored, options?): QualityReport`
+
+Comprehensive quality analysis for compressed vectors.
+
+**Parameters:**
+- `original`: `Float32Array[]` - Original uncompressed vectors
+- `restored`: `Float32Array[]` - Decompressed vectors
+- `options` (optional):
+  - `sampleSize`: `number` - Number of vectors to analyze (default: all)
+  - `rankingQueries`: `number` - Number of queries for ranking tests (default: 100)
+  - `topK`: `number[]` - K values for recall (default: [10, 50, 100])
+  - `includeDimensionAnalysis`: `boolean` - Per-dimension analysis (default: true)
+  - `generateVisualReport`: `boolean` - ASCII charts (default: false)
+
+**Returns:** `QualityReport` - Comprehensive quality metrics
+
+**Example:**
+```typescript
+const report = analyzeQuality(embeddings, restoredEmbeddings, {
+  rankingQueries: 50,
+  sampleSize: 1000
+});
+
+console.log(report.summary);
+console.log(`Overall quality: ${(report.metrics.overallQuality * 100).toFixed(1)}%`);
+console.log(`Recommendation: ${report.metrics.recommendation}`);
+
+if (report.warnings.length > 0) {
+  console.log('Warnings:', report.warnings);
+}
+```
+
+---
+
+#### `recallAtK(query, originalCorpus, compressedCorpus, k): number`
+
+Calculate recall@K for a single query.
+
+**Parameters:**
+- `query`: `Float32Array` - Query vector
+- `originalCorpus`: `Float32Array[]` - Original corpus vectors
+- `compressedCorpus`: `Float32Array[]` - Compressed corpus vectors
+- `k`: `number` - Top-K to evaluate
+
+**Returns:** `number` - Recall score (0-1)
+
+**Example:**
+```typescript
+const recall = recallAtK(queryVector, originalVectors, restoredVectors, 10);
+console.log(`Recall@10: ${(recall * 100).toFixed(1)}%`);
+// If 9 out of 10 top results match: 90%
+```
+
+---
+
+#### `ndcg(query, originalCorpus, compressedCorpus, k): number`
+
+Calculate NDCG (Normalized Discounted Cumulative Gain) for ranking quality.
+
+**Parameters:**
+- `query`: `Float32Array` - Query vector
+- `originalCorpus`: `Float32Array[]` - Original corpus vectors
+- `compressedCorpus`: `Float32Array[]` - Compressed corpus vectors
+- `k`: `number` - Top-K to evaluate
+
+**Returns:** `number` - NDCG score (0-1, higher is better)
+
+---
+
+#### `euclideanDistance(a, b): number`
+
+Calculate Euclidean distance between vectors.
+
+**Parameters:**
+- `a`: `Float32Array` - First vector
+- `b`: `Float32Array` - Second vector
+
+**Returns:** `number` - Euclidean distance
+
+---
+
+#### `manhattanDistance(a, b): number`
+
+Calculate Manhattan (L1) distance between vectors.
+
+**Parameters:**
+- `a`: `Float32Array` - First vector
+- `b`: `Float32Array` - Second vector
+
+**Returns:** `number` - Manhattan distance
+
+---
+
+#### `dimensionErrors(original, restored): DimensionErrorResult`
+
+Calculate per-dimension errors.
+
+**Parameters:**
+- `original`: `Float32Array` - Original vector
+- `restored`: `Float32Array` - Restored vector
+
+**Returns:** Object with:
+- `max`: Maximum error across dimensions
+- `avg`: Average error per dimension
+- `distribution`: Error for each dimension
+
+---
+
+#### `calculateStats(values): StatsSummary`
+
+Calculate statistical summary of values.
+
+**Parameters:**
+- `values`: `number[]` - Array of values
+
+**Returns:** `StatsSummary` with mean, median, min, max, stddev, percentiles
+
+---
+
+#### `calculateRankingMetrics(queries, originalCorpus, compressedCorpus): RankingMetrics`
+
+Calculate comprehensive ranking preservation metrics.
+
+**Parameters:**
+- `queries`: `Float32Array[]` - Query vectors
+- `originalCorpus`: `Float32Array[]` - Original corpus
+- `compressedCorpus`: `Float32Array[]` - Compressed corpus
+
+**Returns:** `RankingMetrics` with recall@K, NDCG, Spearman correlation
 
 ---
 
