@@ -1,596 +1,1092 @@
-# Stratus Embeddings Compression SDK - PRD
-
-**Package:** `@stratus-embeddings/compression`
-**Version:** 1.0.0
-**Status:** Planning
-**Owner:** Formation Team
-**Created:** 2026-01-27
+# Stratus SDK - Product Requirements Document
 
 ---
 
 ## Executive Summary
 
-Stratus is a high-performance vector compression SDK for embedding vectors. It provides **10-20x compression** with minimal quality loss, dramatically reducing storage and bandwidth costs for embedding-heavy applications while maintaining semantic search quality.
+The Stratus SDK enables developers to integrate Stratus X1's Predictive Action Model into their AI agent systems with minimal code changes. The SDK provides native client libraries, OpenAI-compatible APIs, and framework integrations that allow agents to simulate actions, validate decisions, and plan multi-step sequences before execution.
+
+**Target Outcome**: 2-line integration that doubles agent success rates and cuts costs by 75%.
 
 ---
 
-## Problem Statement
+## Vision & Positioning
 
-### Current State
+### What We're Building
 
-Modern embedding models produce high-dimensional vectors:
-- OpenAI `text-embedding-3-small`: **1536 dimensions** (6KB per vector as JSON)
-- OpenAI `text-embedding-3-large`: **3072 dimensions** (12KB per vector)
-- Voyage AI: **1024 dimensions** (4KB per vector)
-- Cohere: **1024-4096 dimensions** (4-16KB per vector)
+An SDK that makes Stratus X1's world model as easy to use as calling an LLM. Developers should be able to add state prediction, action validation, and planning capabilities to their agents with the same simplicity as adding GPT-4 or Claude.
 
-For applications with millions of embeddings:
-- **Storage:** 1M vectors × 6KB = **6GB** uncompressed
-- **Bandwidth:** Syncing embeddings across systems is slow/expensive
-- **Memory:** Loading vectors into memory for search requires significant RAM
-- **Cost:** Cloud storage/bandwidth charges compound quickly
+### Who It's For
 
-### Why Existing Solutions Don't Work
+**Primary Users:**
+1. **AI Engineers** - Building autonomous agents for web automation, workflow orchestration, code execution
+2. **Enterprise DevOps** - Deploying agent-based automation systems
+3. **Framework Maintainers** - LangChain, AutoGPT, CrewAI, etc.
+4. **Researchers** - Experimenting with world models and agent planning
 
-1. **General compression (gzip, brotli):**
-   - Only 2-3x compression on vectors
-   - Must decompress entire dataset for search
-   - Adds latency to every query
+**User Personas:**
 
-2. **Quantization alone:**
-   - int8 quantization: 4x compression, significant quality loss
-   - Binary quantization: 32x compression, severe quality loss
-   - Not reversible - can't get original precision back
-
-3. **Product Quantization (PQ):**
-   - Complex to configure (codebook training)
-   - Requires large datasets to train
-   - Not portable across different embedding models
-
-### The Gap
-
-We need compression that is:
-- **High ratio:** 10-20x compression
-- **High quality:** <5% semantic search quality loss
-- **Fast:** Near-zero decompression overhead
-- **Simple:** Works out-of-the-box, no training
-- **Portable:** Works with any embedding model
+| Persona | Need | Pain Point | Success Metric |
+|---------|------|------------|----------------|
+| **Agent Builder (Alex)** | Improve task success rate from 15% → 35%+ | Agents fail silently, can't debug why actions don't work | 2x task success rate |
+| **DevOps Engineer (Sam)** | Reduce token costs for production agents | Agent costs spiraling due to massive context windows | 75% cost reduction |
+| **Framework Maintainer (Jordan)** | Add world model layer to existing framework | Users demand better planning, hard to integrate new models | Drop-in integration |
+| **Researcher (Dr. Chen)** | Experiment with predictive models for agents | Hard to prototype without production infrastructure | Rapid prototyping |
 
 ---
 
-## Solution: Stratus Compression
+## Product Goals & Success Metrics
 
-Stratus combines multiple compression techniques into a single, optimized pipeline:
+### Primary Goals
 
-1. **Hybrid Quantization**
-   - Adaptive precision: Higher precision for important dimensions
-   - Dimension-aware: Preserves semantic structure
+1. **Adoption**: 100+ developers integrating Stratus within 30 days of launch
+2. **Success**: 50+ production deployments within 90 days
+3. **Performance**: Demonstrate 2x task success improvement in real-world use cases
+4. **Developer Experience**: 95%+ positive feedback on integration simplicity
 
-2. **Entropy Coding**
-   - Huffman/Arithmetic coding on quantized values
-   - Exploits clustering in embedding space
+### Key Metrics
 
-3. **Delta Encoding**
-   - Stores differences from a learned centroid
-   - Reduces value ranges, improves compression
+| Metric | Target (30d) | Target (90d) | How We Measure |
+|--------|--------------|--------------|----------------|
+| SDK Downloads | 500+ | 2,000+ | npm/pip download counts |
+| Active Integrations | 100+ | 500+ | Unique API keys making calls |
+| Production Deployments | 20+ | 50+ | API usage patterns (>1K calls/day) |
+| Task Success Improvement | 1.5-2x | 2x+ | Customer-reported benchmarks |
+| Cost Reduction | 60-75% | 75%+ | Token usage analytics |
+| Developer NPS | 50+ | 60+ | Post-integration surveys |
+| Framework Integrations | 2+ | 5+ | LangChain, AutoGPT, etc. |
 
-4. **Binary Packing**
-   - Tight bit packing (no wasted space)
-   - Vectorized operations for fast decompression
+### Anti-Goals (What We're NOT Building)
 
-### Key Innovation
-
-**Zero-configuration compression profiles** tuned for common embedding models:
-- No training required
-- Works immediately with OpenAI, Voyage, Cohere, etc.
-- Falls back to generic compression for custom models
-
----
-
-## API Design
-
-### TypeScript API
-
-```typescript
-import { compress, decompress, CompressionLevel } from '@stratus-embeddings/compression';
-
-// === Basic Usage ===
-
-// Compress a single vector
-const embedding = [...]; // 1536 floats from OpenAI
-const compressed = compress(embedding);
-// Returns: Uint8Array (~300-600 bytes)
-
-// Decompress
-const restored = decompress(compressed);
-// Returns: Float32Array (1536 floats)
-
-// === Advanced Usage ===
-
-// Configure compression level
-const compressed = compress(embedding, {
-  level: CompressionLevel.High, // High = 10x, VeryHigh = 20x
-  preservePrecision: 0.95,      // 95% quality target
-});
-
-// Batch compression (more efficient)
-const embeddings = [[...], [...], [...]]; // Array of vectors
-const compressedBatch = compressBatch(embeddings);
-
-// === Model-Specific Optimization ===
-
-// Auto-detect and optimize for specific models
-const compressed = compress(embedding, {
-  model: 'openai/text-embedding-3-small', // Uses tuned profile
-});
-
-// === Metadata & Versioning ===
-
-// Get compression metadata
-const info = getCompressionInfo(compressed);
-console.log(info);
-// {
-//   version: 1,
-//   level: 'high',
-//   originalDims: 1536,
-//   compressedBytes: 312,
-//   ratio: 19.2,
-//   estimatedQuality: 0.96
-// }
-
-// === Similarity Search (Compressed) ===
-
-// Compare compressed vectors without full decompression
-import { cosineSimilarity } from '@stratus-embeddings/compression';
-
-const sim = cosineSimilarity(compressed1, compressed2);
-// Fast approximate similarity on compressed vectors
-```
-
-### CLI Usage
-
-```bash
-# Compress embeddings file
-stratus compress embeddings.json -o embeddings.stratus
-
-# Decompress
-stratus decompress embeddings.stratus -o embeddings.json
-
-# Benchmark compression
-stratus bench embeddings.json --show-quality
-
-# Migrate database
-stratus migrate sqlite:memory.db --compress-vectors
-```
+- ❌ A full agent framework (we integrate with existing frameworks)
+- ❌ A hosted agent platform (we provide the world model layer)
+- ❌ Domain-specific tools (we enable general prediction, not vertical solutions)
+- ❌ A prompt engineering library (we complement LLMs, not replace them)
 
 ---
 
-## Technical Architecture
+## Core Use Cases
 
-### Core Modules
+### Use Case 1: Web Automation Agent
 
-```
-@stratus-embeddings/compression/
-├── src/
-│   ├── compress.ts          # Main compression logic
-│   ├── decompress.ts        # Decompression logic
-│   ├── quantize.ts          # Quantization algorithms
-│   ├── entropy.ts           # Entropy coding
-│   ├── delta.ts             # Delta encoding
-│   ├── profiles/            # Model-specific profiles
-│   │   ├── openai.ts
-│   │   ├── voyage.ts
-│   │   └── generic.ts
-│   ├── similarity.ts        # Compressed vector similarity
-│   ├── utils.ts             # Helpers
-│   └── types.ts             # TypeScript types
-├── cli/                     # CLI tool
-├── benchmarks/              # Performance tests
-└── tests/                   # Unit tests
-```
+**Scenario**: Building an agent that navigates websites and completes multi-step tasks (e.g., booking a flight, filling forms).
 
-### Compression Pipeline
+**Without Stratus**:
+- Agent takes action → hopes it works → checks result → often fails
+- Success rate: ~15-20% on WebArena benchmark
+- High token usage (15K+ tokens per action)
+- Slow (multiple LLM calls to recover from errors)
 
-```
-Input: Float32Array (1536 dims)
-  ↓
-[1] Center & Scale
-    - Subtract learned centroid
-    - Normalize to [-1, 1]
-  ↓
-[2] Adaptive Quantization
-    - High-precision: First 256 dims (8-bit)
-    - Med-precision: Next 512 dims (6-bit)
-    - Low-precision: Remaining dims (4-bit)
-  ↓
-[3] Entropy Coding
-    - Huffman encode quantized values
-    - Exploits value clustering
-  ↓
-[4] Binary Packing
-    - Pack bits tightly
-    - Add header metadata
-  ↓
-Output: Uint8Array (~300-600 bytes)
+**With Stratus**:
+```python
+from stratus import StratusClient, AgentLoop
+
+client = StratusClient(api_key="...")
+loop = AgentLoop(client, llm="claude-sonnet-4")
+
+# Agent automatically uses Stratus to:
+# 1. Predict outcomes before actions
+# 2. Validate actions against goal
+# 3. Plan multi-step sequences
+# 4. Recover from errors
+
+result = loop.run(
+    task="Book a flight from SF to NYC on Feb 15",
+    environment="browser"
+)
+
+# Result: 38% success rate (2x improvement)
+# Token usage: 1.5K per action (90% reduction)
 ```
 
-### Decompression Pipeline
+**Expected Outcome**: Success rate improves from 15% → 35%+, costs drop by 75%.
+
+---
+
+### Use Case 2: Code Execution Agent
+
+**Scenario**: Agent that writes and executes code to solve problems (SWE-Bench, data analysis).
+
+**Without Stratus**:
+- Agent proposes code → runs it → sees error → tries to fix → often stuck
+- Limited lookahead (can't predict if code will work)
+- High failure rate on complex problems
+
+**With Stratus**:
+```python
+from stratus import StratusClient
+
+client = StratusClient(api_key="...")
+
+# Before executing code, simulate outcome
+current_state = {"code": proposed_code, "context": file_context}
+action = {"type": "execute", "code": proposed_code}
+
+predicted_state = client.predict(
+    current_state=current_state,
+    action=action,
+    goal="function passes all tests"
+)
+
+if predicted_state.goal_progress > 0.8:
+    # High confidence this will work
+    execute_code(proposed_code)
+else:
+    # Likely to fail, try alternative
+    alternative = llm.generate_alternative(predicted_state.issues)
+```
+
+**Expected Outcome**: Higher first-attempt success, fewer iteration loops.
+
+---
+
+### Use Case 3: Tool-Using Agent (LangChain Integration)
+
+**Scenario**: LangChain agent using multiple tools (search, calculator, database) to answer questions.
+
+**Without Stratus**:
+- Agent picks tools somewhat randomly
+- Often picks wrong sequence
+- Can't validate if tool choice helps
+
+**With Stratus**:
+```python
+from langchain.agents import initialize_agent
+from stratus.integrations.langchain import StratusToolWrapper
+
+# Wrap existing tools with Stratus prediction
+tools = [
+    StratusToolWrapper(search_tool),
+    StratusToolWrapper(calculator_tool),
+    StratusToolWrapper(database_tool)
+]
+
+# Agent now validates each tool call before execution
+agent = initialize_agent(
+    tools=tools,
+    llm=llm,
+    agent="zero-shot-react-description",
+    stratus_enabled=True  # Single flag to enable prediction
+)
+
+result = agent.run("What was Apple's revenue growth in Q3 2024?")
+```
+
+**Expected Outcome**: Fewer wasted tool calls, faster task completion.
+
+---
+
+### Use Case 4: Multi-Agent Workflow
+
+**Scenario**: Multiple agents coordinating on a complex task (e.g., research → analysis → writing).
+
+**Without Stratus**:
+- Agents pass incomplete/wrong artifacts
+- Hard to validate handoffs
+- Cascading failures
+
+**With Stratus**:
+```python
+from stratus import MultiAgentCoordinator
+
+coordinator = MultiAgentCoordinator(
+    agents=[research_agent, analysis_agent, writing_agent],
+    stratus_client=client
+)
+
+# Stratus validates each handoff
+result = coordinator.run(
+    task="Write a report on AI safety research",
+    validation="each agent's output enables next agent to succeed"
+)
+```
+
+**Expected Outcome**: Fewer handoff failures, higher end-to-end success.
+
+---
+
+## Technical Requirements
+
+### SDK Architecture
 
 ```
-Input: Uint8Array
-  ↓
-[1] Unpack Binary
-    - Read header metadata
-    - Extract bit-packed values
-  ↓
-[2] Entropy Decode
-    - Huffman decode
-  ↓
-[3] Dequantize
-    - Reconstruct floats from quantized values
-  ↓
-[4] Denormalize
-    - Apply inverse scaling
-    - Add centroid back
-  ↓
-Output: Float32Array
+┌─────────────────────────────────────────────────────┐
+│                  User's Agent Code                   │
+└───────────────────┬─────────────────────────────────┘
+                    │
+┌───────────────────▼─────────────────────────────────┐
+│              Stratus SDK (Client)                    │
+│  ┌──────────────┬─────────────┬─────────────────┐   │
+│  │  Core Client │ AgentLoop   │ Framework       │   │
+│  │  (Predict)   │ (Orchestrate)│ Integrations   │   │
+│  └──────────────┴─────────────┴─────────────────┘   │
+└───────────────────┬─────────────────────────────────┘
+                    │ HTTPS/WebSocket
+┌───────────────────▼─────────────────────────────────┐
+│           Stratus X1 API (Backend)                   │
+│  ┌──────────────┬─────────────┬─────────────────┐   │
+│  │ Prediction   │ Validation  │ Planning        │   │
+│  │ Endpoint     │ Endpoint    │ Endpoint        │   │
+│  └──────────────┴─────────────┴─────────────────┘   │
+└─────────────────────────────────────────────────────┘
+```
+
+### Core Components
+
+#### 1. Client Libraries (Priority 1)
+
+**Languages**:
+- **Python** (primary, 80% of users)
+- **TypeScript/JavaScript** (secondary, 15% of users)
+- **Go** (tertiary, 5% of users - later phase)
+
+**Core Client API**:
+```python
+class StratusClient:
+    def __init__(self, api_key: str, base_url: Optional[str] = None):
+        """Initialize Stratus client."""
+
+    def predict(
+        self,
+        current_state: State,
+        action: Action,
+        goal: Optional[str] = None,
+        context: Optional[Dict] = None
+    ) -> PredictedState:
+        """Predict next state given current state and action."""
+
+    def validate(
+        self,
+        current_state: State,
+        action: Action,
+        goal: str
+    ) -> ValidationResult:
+        """Validate if action progresses toward goal."""
+
+    def plan(
+        self,
+        current_state: State,
+        goal: str,
+        max_steps: int = 5
+    ) -> List[Action]:
+        """Generate multi-step action plan."""
+
+    def batch_predict(
+        self,
+        predictions: List[PredictionRequest]
+    ) -> List[PredictedState]:
+        """Batch prediction for multiple action candidates."""
+```
+
+**Type Definitions**:
+```python
+@dataclass
+class State:
+    """Environment state representation."""
+    observation: Union[str, Dict, np.ndarray]
+    metadata: Optional[Dict] = None
+
+@dataclass
+class Action:
+    """Action representation."""
+    type: str  # e.g., "click", "type", "execute", "search"
+    parameters: Dict
+    metadata: Optional[Dict] = None
+
+@dataclass
+class PredictedState:
+    """Predicted next state."""
+    state: State
+    confidence: float  # 0-1
+    goal_progress: float  # -1 to 1 (negative = regress, positive = progress)
+    embedding: np.ndarray  # 768-dim state embedding
+    issues: List[str]  # Predicted problems
+
+@dataclass
+class ValidationResult:
+    """Action validation result."""
+    valid: bool
+    confidence: float
+    reason: str
+    alternatives: List[Action]  # Suggested alternatives if invalid
+```
+
+#### 2. AgentLoop (Orchestration Layer)
+
+High-level orchestration that handles LLM + Stratus coordination:
+
+```python
+class AgentLoop:
+    def __init__(
+        self,
+        stratus_client: StratusClient,
+        llm: str = "claude-sonnet-4",  # OpenAI-compatible
+        strategy: str = "validate"  # validate | plan | hybrid
+    ):
+        """Initialize agent loop with Stratus + LLM."""
+
+    def run(
+        self,
+        task: str,
+        environment: str,
+        max_steps: int = 50,
+        callbacks: Optional[List[Callback]] = None
+    ) -> AgentResult:
+        """
+        Run agent loop:
+        1. LLM proposes action
+        2. Stratus validates/predicts
+        3. Execute if validated
+        4. Repeat until goal reached or max_steps
+        """
+
+@dataclass
+class AgentResult:
+    """Agent execution result."""
+    success: bool
+    steps_taken: int
+    final_state: State
+    trace: List[Step]  # Full execution trace
+    metrics: Metrics  # Token usage, latency, cost
+```
+
+**Strategies**:
+- **validate**: Stratus validates each LLM-proposed action before execution
+- **plan**: Stratus generates full plan, LLM refines/executes
+- **hybrid**: Stratus plans 3-5 steps ahead, LLM executes with validation
+
+#### 3. Framework Integrations (Priority 2)
+
+**LangChain Integration**:
+```python
+from stratus.integrations.langchain import StratusToolWrapper, StratusAgent
+
+# Option 1: Wrap existing tools
+tools = [StratusToolWrapper(tool) for tool in existing_tools]
+
+# Option 2: Use Stratus-native agent
+agent = StratusAgent(
+    tools=tools,
+    llm=llm,
+    stratus_client=client
+)
+```
+
+**AutoGPT Integration**:
+```python
+from stratus.integrations.autogpt import StratusPlugin
+
+# Add as AutoGPT plugin
+plugins = [StratusPlugin(api_key="...")]
+```
+
+**CrewAI Integration**:
+```python
+from stratus.integrations.crewai import StratusValidator
+
+# Add validation layer to crew
+crew = Crew(
+    agents=[...],
+    validator=StratusValidator(client)
+)
+```
+
+#### 4. OpenAI API Compatibility Layer
+
+For drop-in replacement in existing codebases:
+
+```python
+# Existing code uses OpenAI
+from openai import OpenAI
+client = OpenAI(api_key="...")
+
+# Switch to Stratus with zero code changes
+from stratus.openai import OpenAI  # Drop-in replacement
+client = OpenAI(
+    api_key="stratus-key",
+    base_url="https://api.stratus.run/v1"
+)
+
+# Existing calls now use Stratus for validation
+# (intercepts chat completions, validates actions)
 ```
 
 ---
 
-## Performance Targets
+## API Specification
 
-### Compression Ratio
+### REST API Endpoints
 
-| Level | Target Ratio | Quality (Cosine Sim) | Use Case |
-|-------|--------------|----------------------|----------|
-| **Low** | 5x | 99%+ | Production search |
-| **Medium** | 10x | 97%+ | General storage |
-| **High** | 15x | 95%+ | Archival |
-| **VeryHigh** | 20x | 90%+ | Aggressive savings |
+Base URL: `https://api.stratus.run/v1`
 
-### Speed Targets
+#### POST /predict
 
-- **Compression:** <1ms per vector (single-threaded)
-- **Decompression:** <0.1ms per vector
-- **Batch compression:** 10,000 vectors/sec
-- **Similarity (compressed):** <0.05ms per comparison
+Predict next state given current state and action.
 
-### Size Targets (OpenAI text-embedding-3-small, 1536 dims)
-
-| Format | Size per Vector | Reduction |
-|--------|-----------------|-----------|
-| JSON (uncompressed) | 6,144 bytes | Baseline |
-| Float32 binary | 6,144 bytes | 0% |
-| gzip | ~2,000 bytes | 67% |
-| **Stratus Low** | ~1,200 bytes | **80%** |
-| **Stratus Medium** | ~600 bytes | **90%** |
-| **Stratus High** | ~400 bytes | **93%** |
-| **Stratus VeryHigh** | ~300 bytes | **95%** |
-
----
-
-## Implementation Phases
-
-### Phase 1: Core Compression (Week 1-2)
-
-**Goal:** Basic compress/decompress working
-
-- [ ] Set up TypeScript package structure
-- [ ] Implement quantization (adaptive precision)
-- [ ] Implement entropy coding (Huffman)
-- [ ] Implement binary packing
-- [ ] Unit tests for each component
-- [ ] Benchmark against gzip baseline
-
-**Deliverable:** `compress()` and `decompress()` functions work, pass tests
-
-### Phase 2: Quality & Performance (Week 3)
-
-**Goal:** Hit performance targets
-
-- [ ] Optimize quantization for quality
-- [ ] Add batch compression
-- [ ] Vectorize operations (SIMD where possible)
-- [ ] Profile and optimize hot paths
-- [ ] Quality benchmarks (cosine similarity preservation)
-
-**Deliverable:** Meets speed and quality targets
-
-### Phase 3: Model Profiles (Week 4)
-
-**Goal:** Model-specific optimization
-
-- [ ] Create OpenAI profile (text-embedding-3-small, 3-large)
-- [ ] Create Voyage profile
-- [ ] Create Cohere profile
-- [ ] Auto-detection from vector dimensions
-- [ ] Generic fallback profile
-
-**Deliverable:** Better compression for common models
-
-### Phase 4: Production Features (Week 5)
-
-**Goal:** Production-ready
-
-- [ ] CLI tool (`stratus compress/decompress/bench`)
-- [ ] Compressed similarity search
-- [ ] Migration helpers (SQLite, Postgres, etc.)
-- [ ] Error handling & validation
-- [ ] Documentation & examples
-
-**Deliverable:** Ready for npm publish
-
-### Phase 5: Ecosystem Integration (Week 6+)
-
-**Goal:** Easy adoption
-
-- [ ] Integrations: LangChain, LlamaIndex
-- [ ] Database plugins: SQLite, Postgres vector extensions
-- [ ] Example projects
-- [ ] Blog post & benchmarks
-- [ ] Community feedback
-
-**Deliverable:** Ecosystem adoption
-
----
-
-## Success Metrics
-
-### Technical Metrics
-
-- **Compression ratio:** ≥10x at Medium level
-- **Quality preservation:** ≥95% cosine similarity
-- **Speed:** <1ms compression, <0.1ms decompression
-- **Package size:** <100KB (no heavy dependencies)
-
-### Adoption Metrics
-
-- **npm downloads:** 1,000/month by Month 3
-- **GitHub stars:** 500+ by Month 6
-- **Integrations:** 3+ major frameworks
-- **Issues closed:** 90%+ within 1 week
-
-### Business Metrics
-
-- **Storage savings:** Users save ≥80% storage costs
-- **Performance improvement:** Search latency reduced by 20%+ (from I/O savings)
-- **User feedback:** 4.5+ stars, positive testimonials
-
----
-
-## Dependencies
-
-### Core Dependencies (Minimal)
-
+**Request**:
 ```json
 {
-  "dependencies": {
-    // NONE - pure TypeScript, no runtime dependencies
+  "current_state": {
+    "observation": "...",  // String, dict, or base64-encoded array
+    "metadata": {}
   },
-  "devDependencies": {
-    "typescript": "^5.3.0",
-    "vitest": "^1.0.0",
-    "tsup": "^8.0.0"
-  }
+  "action": {
+    "type": "click",
+    "parameters": {"element": "button#submit"},
+    "metadata": {}
+  },
+  "goal": "Complete form submission",  // Optional
+  "context": {}  // Optional additional context
 }
 ```
 
-**Why no dependencies?**
-- Faster install
-- Smaller bundle size
-- No supply chain risk
-- Maximum portability
+**Response**:
+```json
+{
+  "predicted_state": {
+    "observation": "...",
+    "metadata": {}
+  },
+  "confidence": 0.92,
+  "goal_progress": 0.85,
+  "embedding": [...],  // 768-dim array
+  "issues": [],
+  "latency_ms": 45
+}
+```
+
+#### POST /validate
+
+Validate if action progresses toward goal.
+
+**Request**:
+```json
+{
+  "current_state": {...},
+  "action": {...},
+  "goal": "Complete form submission"
+}
+```
+
+**Response**:
+```json
+{
+  "valid": true,
+  "confidence": 0.88,
+  "reason": "Action likely completes form submission",
+  "alternatives": [],  // Suggested alternatives if invalid
+  "goal_progress": 0.85
+}
+```
+
+#### POST /plan
+
+Generate multi-step action plan.
+
+**Request**:
+```json
+{
+  "current_state": {...},
+  "goal": "Book a flight from SF to NYC",
+  "max_steps": 5,
+  "strategy": "greedy"  // greedy | beam | sampling
+}
+```
+
+**Response**:
+```json
+{
+  "plan": [
+    {
+      "step": 1,
+      "action": {...},
+      "predicted_state": {...},
+      "confidence": 0.90
+    },
+    ...
+  ],
+  "total_confidence": 0.75,
+  "expected_steps": 5,
+  "alternatives": []  // Alternative plans
+}
+```
+
+#### POST /batch
+
+Batch prediction for multiple action candidates.
+
+**Request**:
+```json
+{
+  "predictions": [
+    {"current_state": {...}, "action": {...}, "goal": "..."},
+    {"current_state": {...}, "action": {...}, "goal": "..."},
+    ...
+  ]
+}
+```
+
+**Response**:
+```json
+{
+  "results": [
+    {"predicted_state": {...}, "confidence": 0.92, ...},
+    ...
+  ]
+}
+```
+
+### WebSocket API (Real-Time Streaming)
+
+For long-running agent loops with live feedback:
+
+```
+ws://api.stratus.run/v1/stream
+```
+
+**Message Format**:
+```json
+// Client → Server (predict)
+{
+  "type": "predict",
+  "id": "req-123",
+  "current_state": {...},
+  "action": {...}
+}
+
+// Server → Client (result)
+{
+  "type": "predict_result",
+  "id": "req-123",
+  "predicted_state": {...},
+  "confidence": 0.92
+}
+```
+
+### Authentication
+
+**API Key Authentication** (Header):
+```
+Authorization: Bearer stratus_sk_...
+```
+
+**Rate Limits**:
+- Free tier: 100 predictions/day
+- Developer tier: 10K predictions/day
+- Production tier: Unlimited (metered)
 
 ---
 
-## Open Questions
+## Data Formats & Standards
 
-### Q1: Should we support streaming compression?
+### State Representation
 
-For large batches of vectors, streaming could reduce memory usage.
+Stratus supports multiple state formats:
 
-**Tradeoff:**
-- Pro: Lower memory footprint
-- Con: Less opportunity for batch optimization
-- **Decision:** Start with batch, add streaming if needed
+1. **Text** (string): Raw text observations
+   ```python
+   state = State(observation="User is on homepage. Button visible.")
+   ```
 
-### Q2: What about GPU acceleration?
+2. **Structured** (dict): Key-value observations
+   ```python
+   state = State(observation={
+       "page": "homepage",
+       "elements": ["button#submit", "input#email"],
+       "form_filled": False
+   })
+   ```
 
-GPU-accelerated compression could be 10-100x faster.
+3. **Embedding** (numpy array): Pre-computed 768-dim embedding
+   ```python
+   state = State(observation=np.array([...]))  # 768-dim
+   ```
 
-**Tradeoff:**
-- Pro: Much faster for large batches
-- Con: Requires CUDA/GPU setup, less portable
-- **Decision:** CPU-first, GPU as optional addon later
+### Action Types
 
-### Q3: Should we support progressive decompression?
+Standard action vocabulary (extensible):
 
-Decompress only top-K dimensions for approximate search, then full decompress for reranking.
+| Action Type | Parameters | Example Use Case |
+|-------------|------------|------------------|
+| `click` | `element: str` | Web automation |
+| `type` | `element: str, text: str` | Form filling |
+| `navigate` | `url: str` | Web navigation |
+| `execute` | `code: str, language: str` | Code execution |
+| `search` | `query: str` | Information retrieval |
+| `call_tool` | `tool: str, args: Dict` | Tool use |
+| `wait` | `duration_ms: int` | Timing control |
+| `custom` | `parameters: Dict` | User-defined actions |
 
-**Tradeoff:**
-- Pro: Even faster search
-- Con: More complex API
-- **Decision:** Add in Phase 5 if there's demand
+### Goal Specification
 
-### Q4: License?
-
-MIT vs Apache 2.0 vs Commercial
-
-**Options:**
-- MIT: Permissive, good for adoption
-- Apache 2.0: Patent protection
-- Dual license: Free for OSS, commercial for enterprise
-- **Decision:** MIT for maximum adoption, can change later
+Goals can be:
+- **Natural language**: "Complete the checkout process"
+- **Structured**: `{"goal_type": "form_submission", "form_id": "checkout"}`
+- **Metric-based**: `{"metric": "cart_total", "target": 0}`
 
 ---
 
-## Competitive Landscape
+## Developer Experience
 
-| Solution | Compression Ratio | Quality | Speed | Ease of Use |
-|----------|-------------------|---------|-------|-------------|
-| **gzip** | 2-3x | 100% | Fast | Easy |
-| **Int8 quantization** | 4x | 85-90% | Very fast | Easy |
-| **Product Quantization** | 8-32x | 80-95% | Fast | Hard (training) |
-| **ScaNN (Google)** | 8-16x | 90-95% | Very fast | Medium |
-| **Faiss compression** | 8-32x | 85-95% | Very fast | Hard |
-| **Stratus** | **10-20x** | **95%+** | **Fast** | **Very easy** |
+### Getting Started (Time to First Success)
 
-**Stratus Differentiation:**
-- No training required (unlike PQ)
-- Better quality than quantization alone
-- Simpler API than Faiss/ScaNN
-- Language-agnostic format (works everywhere)
+**Target**: Developer goes from signup → first working prediction in **< 5 minutes**.
+
+#### Step 1: Install SDK (30 seconds)
+```bash
+pip install stratus-sdk
+# or
+npm install @stratus/sdk
+```
+
+#### Step 2: Get API Key (1 minute)
+```bash
+# Sign up at stratus.run
+# Copy API key from dashboard
+export STRATUS_API_KEY="stratus_sk_..."
+```
+
+#### Step 3: First Prediction (2 minutes)
+```python
+from stratus import StratusClient
+
+client = StratusClient()  # Uses STRATUS_API_KEY env var
+
+# Predict outcome of clicking a button
+result = client.predict(
+    current_state={"page": "homepage", "button_visible": True},
+    action={"type": "click", "element": "button#submit"},
+    goal="Submit form"
+)
+
+print(f"Confidence: {result.confidence}")
+print(f"Goal progress: {result.goal_progress}")
+# Output:
+# Confidence: 0.92
+# Goal progress: 0.85
+```
+
+#### Step 4: Full Agent Loop (2 minutes)
+```python
+from stratus import AgentLoop
+
+loop = AgentLoop(client, llm="claude-sonnet-4")
+
+result = loop.run(
+    task="Fill out contact form and submit",
+    environment="browser"
+)
+
+print(f"Success: {result.success}")
+print(f"Steps: {result.steps_taken}")
+```
+
+### Code Examples & Templates
+
+Provide ready-to-run examples for common patterns:
+
+1. **Web automation with Selenium**
+2. **API agent with LangChain**
+3. **Code execution with SWE-Bench**
+4. **Multi-agent coordination**
+5. **Custom environment integration**
+
+### Documentation Structure
+
+```
+docs/
+├── quickstart.md              # 5-minute getting started
+├── concepts/
+│   ├── how-stratus-works.md   # Architecture overview
+│   ├── state-action-goal.md   # Core concepts
+│   └── integration-patterns.md
+├── guides/
+│   ├── web-automation.md
+│   ├── code-execution.md
+│   ├── tool-use.md
+│   └── multi-agent.md
+├── api-reference/
+│   ├── client.md
+│   ├── agent-loop.md
+│   └── rest-api.md
+├── integrations/
+│   ├── langchain.md
+│   ├── autogpt.md
+│   └── custom.md
+└── examples/
+    ├── selenium-agent/
+    ├── langchain-tools/
+    └── swe-bench/
+```
+
+### Error Handling & Debugging
+
+**Principle**: Errors should be actionable and clear.
+
+**Example Error Messages**:
+
+```python
+# ❌ Bad error
+Exception: Prediction failed
+
+# ✅ Good error
+StratusValidationError:
+  Action validation failed (confidence: 0.32)
+
+  Reason: Current state missing required field 'page_url'
+
+  Fix: Include 'page_url' in state.observation
+
+  Example:
+    state = State(observation={
+        "page_url": "https://example.com",
+        ...
+    })
+```
+
+**Debug Mode**:
+```python
+client = StratusClient(debug=True)  # Verbose logging
+
+result = client.predict(...)
+# Logs:
+# [DEBUG] Sending prediction request...
+# [DEBUG] State embedding: 768 dims
+# [DEBUG] Action encoded: click (id: 42)
+# [DEBUG] Prediction latency: 45ms
+# [DEBUG] Confidence: 0.92 (HIGH)
+```
+
+### Monitoring & Observability
+
+Built-in metrics and tracing:
+
+```python
+from stratus import StratusClient, MetricsCallback
+
+client = StratusClient()
+
+# Log metrics to your observability stack
+metrics_cb = MetricsCallback(
+    backend="prometheus",  # or datadog, cloudwatch, etc.
+    labels={"agent": "checkout-bot", "env": "prod"}
+)
+
+loop = AgentLoop(client, callbacks=[metrics_cb])
+result = loop.run(...)
+
+# Metrics automatically tracked:
+# - stratus_predictions_total
+# - stratus_prediction_latency_ms
+# - stratus_confidence_score
+# - stratus_goal_progress
+# - stratus_api_errors_total
+```
+
+---
+
+## Testing & Quality
+
+### Unit Tests (SDK)
+
+Every SDK component must have:
+- Unit tests (90%+ coverage)
+- Integration tests (against staging API)
+- Type checking (Python: mypy, TS: tsc)
+- Linting (Python: ruff, TS: eslint)
+
+### End-to-End Tests
+
+Real agent scenarios:
+1. Web automation (Selenium + Stratus)
+2. LangChain tool use
+3. Code execution
+4. Multi-agent coordination
+
+**Target**: All examples in docs must pass E2E tests.
+
+### Performance Tests
+
+Benchmarks to track:
+- SDK overhead (< 5ms for local operations)
+- API latency (p50 < 100ms, p99 < 500ms)
+- Batch efficiency (10x predictions in 2x time)
+
+---
+
+## Deployment & Distribution
+
+### Package Distribution
+
+**Python**:
+- PyPI: `pip install stratus-sdk`
+- Versioning: SemVer (0.1.0 → 1.0.0 at stable release)
+- Python versions: 3.9+
+
+**TypeScript/JavaScript**:
+- npm: `npm install @stratus/sdk`
+- Versioning: SemVer
+- Node versions: 16+
+
+### Release Process
+
+1. **Alpha** (internal testing): 0.1.x
+2. **Beta** (public beta users): 0.2.x - 0.9.x
+3. **Stable** (public release): 1.0.0
+
+**Breaking changes**: Only in major versions (0.x → 1.x)
+
+### Backwards Compatibility
+
+**Promise**: SDK 1.x will maintain API compatibility for 12+ months.
+
+**Deprecation process**:
+1. Announce deprecation (release notes)
+2. Warn in code (logging)
+3. Remove in next major version
+
+---
+
+## Go-to-Market Integration
+
+### Beta Program
+
+**Target**: 5-10 beta users with SDK before public launch.
+
+**Beta checklist**:
+- [ ] Python SDK functional (predict, validate, plan)
+- [ ] LangChain integration working
+- [ ] Quickstart docs complete
+- [ ] API rate limits configured
+- [ ] Error handling polished
+- [ ] Example projects ready
+
+**Beta user profiles**:
+1. AI engineer at startup (web automation use case)
+2. Enterprise DevOps (workflow automation)
+3. Framework maintainer (LangChain contributor)
+4. Researcher (academic lab)
+5. Open source developer (AutoGPT contributor)
+
+### Launch Assets
+
+SDK-specific launch content:
+1. **GitHub repo**: `stratus-ai/stratus-sdk-python`
+2. **Documentation site**: docs.stratus.run/sdk
+3. **Example projects**: 5+ fully working examples
+4. **Tutorial video**: "Build your first Stratus agent in 10 minutes"
+5. **Blog post**: "Introducing Stratus SDK: Add a world model to your agent in 2 lines"
+
+### Community Building
+
+**Day 1**:
+- Open source SDK on GitHub
+- Publish quickstart docs
+- Share on Twitter, HN, Reddit
+
+**Week 1**:
+- 5+ example projects public
+- Tutorial videos live
+- Office hours for beta users
+
+**Month 1**:
+- Framework integrations (LangChain, AutoGPT)
+- Community showcase (users share projects)
+- First community contributions (PRs accepted)
 
 ---
 
 ## Risks & Mitigations
 
-### Risk 1: Quality doesn't meet targets
+### Technical Risks
 
-**Mitigation:**
-- Extensive benchmarking on real datasets
-- Multiple quality levels (users choose tradeoff)
-- Conservative defaults (Medium level = 10x @ 97%)
+| Risk | Impact | Mitigation |
+|------|--------|------------|
+| **API latency too high** | Users abandon if > 500ms | Optimize model inference, add edge caching |
+| **SDK bugs in production** | Loss of trust, churn | Extensive testing, staged rollout, fast hotfix process |
+| **State format incompatibility** | Integration friction | Support multiple formats (text, dict, embedding) |
+| **Framework integration breaks** | Existing users blocked | Pin dependencies, regression tests, deprecation warnings |
 
-### Risk 2: Speed too slow for production
+### Product Risks
 
-**Mitigation:**
-- Profile early, optimize hot paths
-- SIMD/vectorization where possible
-- Batch operations for throughput
-- GPU acceleration as escape hatch
+| Risk | Impact | Mitigation |
+|------|--------|------------|
+| **Developers don't see value** | Low adoption | Clear before/after benchmarks, case studies |
+| **Too complex to integrate** | High drop-off | 2-line integration, clear docs, video tutorials |
+| **Competitors release similar SDK** | Market share loss | Speed to market, superior DX, community building |
+| **Model accuracy insufficient** | Users lose trust | Continuous training, confidence thresholds, fallback to LLM-only |
 
-### Risk 3: Low adoption (too niche)
+### Business Risks
 
-**Mitigation:**
-- Clear value prop: "Save 90% on storage"
-- Dead-simple API (one-liner)
-- Integrate with popular frameworks
-- Open source + great docs
-
-### Risk 4: Format becomes obsolete
-
-**Mitigation:**
-- Versioned format (forward/backward compatible)
-- Migration tools
-- Long-term stability commitment
+| Risk | Impact | Mitigation |
+|------|--------|------------|
+| **Pricing too high** | Adoption blocked | Free tier (100 preds/day), pay-as-you-go, volume discounts |
+| **Customer support overwhelmed** | Poor user experience | Comprehensive docs, community forum, office hours |
+| **Open source forks** | Revenue loss | Dual license (SDK open, model closed), hosted API advantages |
 
 ---
 
-## Go-to-Market
+## Timeline & Milestones
 
-### Launch Strategy
+### Phase 1: Alpha (Weeks 1-2)
 
-**Week 1: Soft Launch**
-- Publish to npm as `@stratus-embeddings/compression@1.0.0-beta`
-- Announce on Twitter, HN, Reddit (r/MachineLearning)
-- Share benchmarks & comparisons
+**Goal**: Internal SDK working for core use cases
 
-**Week 2-4: Content Marketing**
-- Blog post: "We Compressed 1M Embeddings by 95%"
-- Tutorial: "Integrate Stratus with Your Vector DB"
-- Benchmarks: "Stratus vs Quantization vs Faiss"
+**Deliverables**:
+- [ ] Python SDK core client (predict, validate, plan)
+- [ ] AgentLoop orchestration layer
+- [ ] Basic tests (unit + integration)
+- [ ] Internal documentation
 
-**Month 2: Integrations**
-- LangChain plugin
-- LlamaIndex integration
-- SQLite vector extension support
-
-**Month 3+: Community Growth**
-- Conference talks (apply to NeurIPS, ICLR workshops)
-- Partnerships with vector DB companies
-- Enterprise features (if demand exists)
-
-### Pricing (Future)
-
-**Open Core Model:**
-- **Free (MIT):** Core compression SDK
-- **Pro ($99/mo):** GPU acceleration, advanced profiles, support
-- **Enterprise (Custom):** On-prem deployment, SLA, custom models
+**Success Criteria**: Team can build working agent with SDK.
 
 ---
 
-## Appendix: Technical Deep Dives
+### Phase 2: Private Beta (Weeks 3-4)
 
-### A. Quantization Strategy
+**Goal**: 5-10 beta users successfully integrating SDK
 
-**Adaptive Precision Allocation:**
+**Deliverables**:
+- [ ] LangChain integration
+- [ ] Quickstart documentation
+- [ ] 3+ example projects
+- [ ] Error handling polished
+- [ ] Beta user onboarding flow
 
-Embedding dimensions are NOT equally important:
-- Early dimensions: Capture broad semantic categories
-- Later dimensions: Capture fine-grained distinctions
-
-**Our approach:**
-- Analyze dimension variance across large corpus
-- Allocate more bits to high-variance dimensions
-- Use fewer bits for low-variance dimensions
-
-**Example (1536 dims):**
-```
-Dims 0-255:    8 bits each (high precision)
-Dims 256-767:  6 bits each (medium precision)
-Dims 768-1535: 4 bits each (low precision)
-
-Total bits: (256×8) + (512×6) + (768×4) = 8,240 bits = 1,030 bytes
-Baseline: 1536×32 = 49,152 bits = 6,144 bytes
-Ratio: 6.0x
-```
-
-After entropy coding: **~600 bytes** (10x compression)
-
-### B. Entropy Coding
-
-**Why it works:**
-
-Quantized values are NOT uniformly distributed:
-- Most values near 0 (after centering)
-- Rare values at extremes
-
-**Huffman coding:**
-- Frequent values: Short codes (2-3 bits)
-- Rare values: Long codes (8+ bits)
-- Average: 4-5 bits per value (vs 8 bits fixed)
-
-**Additional 2x compression** on top of quantization.
-
-### C. Delta Encoding
-
-**Centroid-based delta:**
-
-1. Learn a "typical embedding" (centroid) from training data
-2. Store difference from centroid, not absolute values
-3. Differences are smaller → better compression
-
-**Example:**
-```
-Original: [0.23, -0.45, 0.12, ...]
-Centroid: [0.20, -0.40, 0.10, ...]
-Delta:    [0.03, -0.05, 0.02, ...]  ← Smaller range!
-```
-
-Smaller range → fewer bits needed in quantization.
+**Success Criteria**: Beta users report 1.5-2x task success improvement.
 
 ---
 
-## References
+### Phase 3: Public Beta (Weeks 5-8)
 
-- [Product Quantization for Nearest Neighbor Search](https://hal.inria.fr/inria-00514462v2/document) (Jégou et al., 2010)
-- [ScaNN: Efficient Vector Similarity Search](https://ai.googleblog.com/2020/07/announcing-scann-efficient-vector.html) (Google, 2020)
-- [Faiss: A Library for Efficient Similarity Search](https://github.com/facebookresearch/faiss) (Facebook AI, 2017)
-- [OpenAI Embeddings Documentation](https://platform.openai.com/docs/guides/embeddings)
+**Goal**: 100+ developers using SDK, positive feedback
 
----
+**Deliverables**:
+- [ ] TypeScript/JS SDK
+- [ ] AutoGPT integration
+- [ ] Full API documentation
+- [ ] Tutorial videos
+- [ ] GitHub repo public
+- [ ] Community forum
 
-**Next Steps:**
-
-1. Review & approve this PRD
-2. Set up GitHub repo: `formation/stratus`
-3. Create initial TypeScript package structure
-4. Begin Phase 1 implementation
+**Success Criteria**: 100+ active users, 50+ GitHub stars, positive sentiment.
 
 ---
 
-**Questions? Feedback?**
+### Phase 4: Stable Release (Weeks 9-12)
 
-Reach out to the Formation team or open a discussion in the repo.
+**Goal**: Production-ready SDK, 500+ developers
+
+**Deliverables**:
+- [ ] SDK v1.0.0 (stable API)
+- [ ] Go SDK (optional)
+- [ ] Advanced features (batch, streaming)
+- [ ] Enterprise support tier
+- [ ] Case studies published
+
+**Success Criteria**: 500+ users, 50+ production deployments, 60+ NPS.
+
+---
+
+## Open Questions & Decisions Needed
+
+### Technical Decisions
+
+1. **State encoding strategy**
+   - Should SDK auto-encode states to embeddings, or send raw to API?
+   - Decision: Send raw, let API handle encoding (more flexible)
+
+2. **Batch API design**
+   - Synchronous batch or async job queue?
+   - Decision: Sync for < 100 predictions, async for larger batches
+
+3. **Caching strategy**
+   - Cache predictions client-side or server-side?
+   - Decision: Server-side (30s TTL), optional client-side cache
+
+4. **Streaming vs polling for long-running plans**
+   - WebSocket streaming or HTTP polling?
+   - Decision: WebSocket for real-time, polling as fallback
+
+### Product Decisions
+
+5. **Free tier limits**
+   - 100 predictions/day sufficient?
+   - Decision: Start with 100, adjust based on beta feedback
+
+6. **OpenAI compatibility layer**
+   - Full compatibility or subset?
+   - Decision: Subset (chat completions + tools), not embeddings/fine-tuning
+
+7. **Framework integration priority**
+   - LangChain first, or broader coverage?
+   - Decision: LangChain first (80% of users), then AutoGPT, CrewAI
+
+8. **Open source vs closed**
+   - SDK open source, model closed?
+   - Decision: SDK open (MIT license), model API closed
+
+---
+
+## Success Criteria
+
+### Week 4 (Beta Launch)
+
+- [ ] 5-10 beta users onboarded
+- [ ] Python SDK functional (predict, validate, plan)
+- [ ] LangChain integration working
+- [ ] Quickstart docs complete
+- [ ] At least 1 user reports 1.5x+ task success improvement
+
+### Week 8 (Public Beta)
+
+- [ ] 100+ developers using SDK
+- [ ] 50+ GitHub stars
+- [ ] TypeScript SDK released
+- [ ] 3+ framework integrations
+- [ ] Positive community sentiment (Twitter, HN)
+
+### Week 12 (Stable Release)
+
+- [ ] 500+ active users
+- [ ] 50+ production deployments
+- [ ] SDK v1.0.0 released
+- [ ] Case studies published
+- [ ] 60+ NPS score
+- [ ] $10K+ MRR from SDK users
+
+---
+
+## Appendix
+
+### Related Documents
+
+- `VISION.md` - Stratus X1 product vision
+- `ROADMAP.md` - Overall product roadmap
+- `API_SERVER_TECHNICAL_SPEC.md` - Backend API specification
+- `STRATUS_X1_PROFILE.md` - Model capabilities profile
+
+### Glossary
+
+- **PAM**: Predictive Action Model
+- **JEPA**: Joint Embedding Predictive Architecture
+- **State**: Environment observation at a point in time
+- **Action**: Operation to execute in environment
+- **Goal**: Desired end state or success criteria
+- **Validation**: Checking if action progresses toward goal
+- **Planning**: Generating multi-step action sequence
+
+### References
+
+- Meta V-JEPA 2 paper: https://ai.meta.com/research/publications/v-jepa-2/
+- WebArena benchmark: https://webarena.dev/
+- SWE-Bench: https://www.swebench.com/
+- LangChain docs: https://langchain.com/
+
+---
+
+**Document Status**: Draft v1.0
+**Last Updated**: 2026-01-27
+**Owner**: Formation
+**Reviewers**: TBD
+**Next Review**: Beta launch readiness (Week 3)
