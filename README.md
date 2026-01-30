@@ -504,6 +504,19 @@ npm link
 
 ---
 
+## For AI Agents (Claude Code)
+
+**Using this SDK with Claude Code?** Check out [`CLAUDE.md`](./CLAUDE.md) for:
+- Vector compression patterns and levels
+- OpenAI embedding optimization profiles
+- Quality metrics and benchmarks
+- Vector database integration (Pinecone, Chroma)
+- Batch operations and performance tips
+
+The `CLAUDE.md` file provides context-aware instructions that Claude automatically loads when working with this SDK.
+
+---
+
 ## License
 
 MIT License - see [LICENSE](./LICENSE) file for details.
