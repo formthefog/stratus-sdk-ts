@@ -105,7 +105,7 @@ const results = searchMemories({ query, limit: 100 });
 ### Basic Usage
 
 ```typescript
-import { compress, decompress, CompressionLevel } from '@formthefog/stratus-sdk-typescript';
+import { compress, decompress, CompressionLevel } from '@formthefog/stratus-sdk-ts';
 
 const embedding = new Float32Array(1536); // Your embedding
 

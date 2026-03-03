@@ -1,0 +1,14 @@
+{
+  "name": "stratus-sdk-ts",
+  "version": "4cff730",
+  "type": "library",
+  "description": "Stratus Typescript SDK",
+  "mcp": {
+    "enabled": true,
+    "transport": "stdio",
+    "capabilities": {
+      "tools": true,
+      "resources": true
+    }
+  }
+}

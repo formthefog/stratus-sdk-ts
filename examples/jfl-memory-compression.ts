@@ -13,7 +13,7 @@
  *   const embedding = decompressEmbedding(compressed, format);
  */
 
-import { compress, decompress, CompressionLevel } from '@formthefog/stratus-sdk-typescript';
+import { compress, decompress, CompressionLevel } from '@formthefog/stratus-sdk-ts';
 
 export interface CompressionConfig {
   enabled: boolean;

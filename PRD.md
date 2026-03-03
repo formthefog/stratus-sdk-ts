@@ -636,7 +636,7 @@ Goals can be:
 ```bash
 pip install stratus-sdk
 # or
-npm install @formthefog/stratus-sdk-typescript
+npm install @formthefog/stratus-sdk-ts
 ```
 
 #### Step 2: Get API Key (1 minute)
@@ -824,7 +824,7 @@ Benchmarks to track:
 - Python versions: 3.9+
 
 **TypeScript/JavaScript**:
-- npm: `npm install @formthefog/stratus-sdk-typescript`
+- npm: `npm install @formthefog/stratus-sdk-ts`
 - Versioning: SemVer
 - Node versions: 16+
 

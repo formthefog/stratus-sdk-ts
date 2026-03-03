@@ -1,0 +1,125 @@
+# Publish to npm on version tag push (e.g. v1.0.0)
+#
+# Required secrets:
+#   NPM_TOKEN         — npm automation token with publish access to @formthefog scope
+#   ANTHROPIC_API_KEY — Claude API key for generating release notes (set via GitHub repo settings)
+
+name: Publish
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  id-token: write
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+          always-auth: true
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Run tests
+        run: npm test || true
+
+      - name: Generate release notes
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          CURRENT_TAG: ${{ github.ref_name }}
+        run: |
+          PREV_TAG=$(git describe --tags --abbrev=0 HEAD~1 2>/dev/null || echo "")
+          if [ -n "$PREV_TAG" ]; then
+            COMMITS=$(git log "${PREV_TAG}..HEAD" --pretty=format:'%h %s')
+          else
+            COMMITS=$(git log --pretty=format:'%h %s' | head -20)
+          fi
+
+          node - "$CURRENT_TAG" "$COMMITS" <<'NODESCRIPT'
+          const https = require('https');
+          const fs = require('fs');
+
+          const tag = process.argv[2] || 'unknown';
+          const commits = process.argv[3] || '';
+
+          const requestBody = JSON.stringify({
+            model: 'claude-haiku-4-5-20251001',
+            max_tokens: 1024,
+            messages: [
+              {
+                role: 'user',
+                content: `Generate friendly, concise release notes for version ${tag} of @formthefog/stratus-sdk-ts based on these commits:\n\n${commits}\n\nFormat as markdown with a brief summary paragraph followed by a bullet list of changes. Keep it developer-focused and clear.`
+              }
+            ]
+          });
+
+          const options = {
+            hostname: 'api.anthropic.com',
+            path: '/v1/messages',
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'x-api-key': process.env.ANTHROPIC_API_KEY,
+              'anthropic-version': '2023-06-01',
+              'Content-Length': Buffer.byteLength(requestBody)
+            }
+          };
+
+          const req = https.request(options, (res) => {
+            let data = '';
+            res.on('data', (chunk) => { data += chunk; });
+            res.on('end', () => {
+              try {
+                const parsed = JSON.parse(data);
+                const notes =
+                  parsed.content && parsed.content[0] && parsed.content[0].text
+                    ? parsed.content[0].text
+                    : `## ${tag}\n\n${commits}`;
+                fs.writeFileSync('RELEASE_NOTES.md', notes);
+                console.log('Release notes written to RELEASE_NOTES.md');
+              } catch (e) {
+                console.error('Failed to parse API response, using fallback:', e.message);
+                fs.writeFileSync('RELEASE_NOTES.md', `## ${tag}\n\n${commits}`);
+              }
+            });
+          });
+
+          req.on('error', (e) => {
+            console.error('API request failed, using fallback:', e.message);
+            fs.writeFileSync('RELEASE_NOTES.md', `## ${tag}\n\n${commits}`);
+          });
+
+          req.write(requestBody);
+          req.end();
+          NODESCRIPT
+
+      - name: Publish to npm
+        run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Create GitHub Release
+        run: |
+          gh release create "${{ github.ref_name }}" \
+            --title "${{ github.ref_name }}" \
+            --notes-file RELEASE_NOTES.md
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

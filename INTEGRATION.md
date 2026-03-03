@@ -40,7 +40,7 @@ ALTER TABLE memories ADD COLUMN embedding_format TEXT DEFAULT 'json';
 
 **Import Stratus:**
 ```typescript
-import { compress, decompress, CompressionLevel } from '@formthefog/stratus-sdk-typescript';
+import { compress, decompress, CompressionLevel } from '@formthefog/stratus-sdk-ts';
 ```
 
 **Compress before saving:**
@@ -110,7 +110,7 @@ export const DEFAULT_CONFIG: MemoryConfig = {
 ### Unit Tests
 
 ```typescript
-import { compress, decompress, cosineSimilarity } from '@formthefog/stratus-sdk-typescript';
+import { compress, decompress, cosineSimilarity } from '@formthefog/stratus-sdk-ts';
 import { createStorage } from '../storage';
 
 describe('Stratus Compression Integration', () => {
