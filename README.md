@@ -7,9 +7,6 @@
 
 <div align="center">
 
-  <br />
-  <br />
-
   <p><strong>TypeScript SDK for Stratus X1 — the predictive world model for AI agents.</strong></p>
 
   [![npm version](https://img.shields.io/npm/v/@formthefog/stratus-sdk-ts)](https://www.npmjs.com/package/@formthefog/stratus-sdk-ts)
