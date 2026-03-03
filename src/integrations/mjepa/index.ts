@@ -1,26 +1,19 @@
 /**
- * M-JEPA-G Integration
+ * Stratus API Integration
  *
- * Complete toolkit for working with M-JEPA-G world model:
+ * Complete toolkit for working with the Stratus API:
  * - Type-safe API client
  * - Trajectory prediction tools
  * - Model comparison utilities
  * - Production helpers
  *
- * @purpose Comprehensive M-JEPA-G integration for Stratus SDK
- * @spec Plan: M-JEPA-G Ecosystem Integration
+ * @purpose Comprehensive Stratus API integration
  */
 
-// Client
-export { MJepaGClient } from './client.js';
-
-// Trajectory prediction
+export { MJepaGClient, StratusAPIError } from './client.js';
 export { TrajectoryPredictor } from './trajectory.js';
-
-// Model comparison
 export { ModelComparison, compareModels } from './comparison.js';
 
-// Production helpers
 export {
   SimpleCache,
   RateLimiter,
@@ -31,23 +24,52 @@ export {
   generateCacheKey,
 } from './helpers.js';
 
-// Types
 export type {
   MJepaClientConfig,
   Message,
   MessageRole,
+  ContentBlock,
+  ToolCall,
+  ToolDefinition,
+  ToolChoiceObject,
+  StratusExtensions,
   ChatCompletionRequest,
   ChatCompletionResponse,
   ChatCompletionChunk,
+  Usage,
+  StratusMetadata,
+  ExecutionTraceStep,
+  BrainSignal,
+  ActionStep,
+  StatePrediction,
   RolloutRequest,
   RolloutResponse,
-  StatePrediction,
-  Action,
+  RolloutSummary,
+  HealthResponse,
+  Model,
+  ModelsListResponse,
+  EmbeddingRequest,
+  EmbeddingResponse,
+  EmbeddingObject,
+  AnthropicRequest,
+  AnthropicResponse,
+  AnthropicContentBlock,
+  AnthropicTool,
+  SetLLMKeysRequest,
+  GetLLMKeysResponse,
+  LLMProvider,
+  CreditPackageName,
+  CreditPackage,
+  CreditPackagesResponse,
+  CreditPurchaseResponse,
+  PaymentChallenge,
+  StratusErrorType,
+  StratusErrorResponse,
+  InsufficientCreditsErrorResponse,
   TrajectoryOptions,
   TrajectoryResult,
   BatchTrajectoryOptions,
   OptimizationCriteria,
-  Usage,
 } from './types.js';
 
 export type {

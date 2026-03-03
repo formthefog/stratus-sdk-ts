@@ -167,32 +167,22 @@ export class CreditMonitor {
   }
 
   /**
-   * Check credit balance
-   * (Note: This would require a /credits endpoint on the API)
+   * Check credit balance.
+   *
+   * NOTE: Not yet implemented. A dedicated credits balance endpoint is not
+   * available on the Stratus API at this time. When an API call fails with
+   * insufficient_credits, the error response includes available_credits.
+   *
+   * TODO: Implement when a balance endpoint is available.
    */
   async checkBalance(): Promise<{
     balance: number;
     status: 'ok' | 'warning' | 'critical';
   }> {
-    // Placeholder - actual implementation would call this.client for balance
-    // For now, return mock data
-    const balance = 500; // Mock balance
-
-    let status: 'ok' | 'warning' | 'critical' = 'ok';
-
-    if (balance <= this.criticalThreshold) {
-      status = 'critical';
-      if (this.onCritical) {
-        this.onCritical(balance);
-      }
-    } else if (balance <= this.warningThreshold) {
-      status = 'warning';
-      if (this.onWarning) {
-        this.onWarning(balance);
-      }
-    }
-
-    return { balance, status };
+    throw new Error(
+      'CreditMonitor.checkBalance() is not yet implemented. ' +
+        'Check available_credits in InsufficientCreditsError responses instead.'
+    );
   }
 
   /**
@@ -237,7 +227,7 @@ export class HealthChecker {
    */
   async check(): Promise<{
     healthy: boolean;
-    modelLoaded: boolean;
+    modelsLoaded: string[];
     error?: string;
   }> {
     try {
@@ -245,7 +235,7 @@ export class HealthChecker {
 
       return {
         healthy: health.status === 'healthy',
-        modelLoaded: health.model_loaded,
+        modelsLoaded: health.stratus_models_loaded,
       };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
@@ -256,7 +246,7 @@ export class HealthChecker {
 
       return {
         healthy: false,
-        modelLoaded: false,
+        modelsLoaded: [],
         error: errorMessage,
       };
     }

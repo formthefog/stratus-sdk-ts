@@ -1,81 +1,59 @@
 "use strict";
 /**
- * M-JEPA-G API Client
+ * Stratus API Client
  *
- * Type-safe TypeScript client for the deployed M-JEPA-G API server.
+ * Type-safe TypeScript client for the Stratus API.
  *
- * @purpose Production-ready client for M-JEPA-G world model interactions
- * @spec Plan: M-JEPA-G Ecosystem Integration
+ * @purpose Production-ready client for Stratus API interactions
  */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.MJepaGClient = void 0;
-/**
- * M-JEPA-G API Client
- *
- * Provides type-safe access to M-JEPA-G endpoints:
- * - Chat completions (OpenAI-compatible)
- * - State rollout (trajectory prediction)
- * - Streaming support
- * - Built-in error handling and retries
- */
+exports.MJepaGClient = exports.StratusAPIError = void 0;
+class StratusAPIError extends Error {
+    constructor(message, status, errorType, param, code) {
+        super(message);
+        this.name = 'StratusAPIError';
+        this.status = status;
+        this.errorType = errorType;
+        this.param = param;
+        this.code = code;
+    }
+}
+exports.StratusAPIError = StratusAPIError;
 class MJepaGClient {
     constructor(config) {
-        this.apiUrl = config.apiUrl || 'http://212.115.124.137:8000';
+        this.apiUrl = (config.apiUrl ?? 'https://api.stratus.run').replace(/\/$/, '');
         this.apiKey = config.apiKey;
-        this.timeout = config.timeout || 30000;
-        this.retries = config.retries || 3;
-        this.compressionProfile = config.compressionProfile || 'Medium';
+        this.timeout = config.timeout ?? 30000;
+        this.retries = config.retries ?? 3;
+        this.compressionProfile = config.compressionProfile ?? 'Medium';
     }
-    /**
-     * Chat completions API (OpenAI-compatible)
-     */
     get chat() {
         return {
             completions: {
-                /**
-                 * Create a chat completion
-                 */
                 create: async (request) => {
                     return this.createChatCompletion(request);
                 },
-                /**
-                 * Stream a chat completion
-                 */
                 stream: async function* (request) {
                     yield* this.streamChatCompletion(request);
                 }.bind(this),
             },
         };
     }
-    /**
-     * Create a chat completion (non-streaming)
-     */
     async createChatCompletion(request) {
-        const response = await this.request('/v1/chat/completions', {
+        return this.post('/v1/chat/completions', {
             ...request,
             stream: false,
         });
-        return response;
     }
-    /**
-     * Stream a chat completion
-     */
     async *streamChatCompletion(request) {
         const response = await fetch(`${this.apiUrl}/v1/chat/completions`, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${this.apiKey}`,
-            },
-            body: JSON.stringify({
-                ...request,
-                stream: true,
-            }),
+            headers: this.buildHeaders(),
+            body: JSON.stringify({ ...request, stream: true }),
             signal: AbortSignal.timeout(this.timeout),
         });
         if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.error.message || 'Chat completion failed');
+            await this.throwFromResponse(response);
         }
         if (!response.body) {
             throw new Error('No response body for streaming');
@@ -90,18 +68,17 @@ class MJepaGClient {
                     break;
                 buffer += decoder.decode(value, { stream: true });
                 const lines = buffer.split('\n');
-                buffer = lines.pop() || '';
+                buffer = lines.pop() ?? '';
                 for (const line of lines) {
                     if (!line.trim() || line.trim() === 'data: [DONE]')
                         continue;
                     if (line.startsWith('data: ')) {
-                        const data = line.slice(6);
                         try {
-                            const chunk = JSON.parse(data);
+                            const chunk = JSON.parse(line.slice(6));
                             yield chunk;
                         }
-                        catch (e) {
-                            console.error('Failed to parse SSE chunk:', data);
+                        catch {
+                            // malformed chunk — skip
                         }
                     }
                 }
@@ -111,83 +88,157 @@ class MJepaGClient {
             reader.releaseLock();
         }
     }
-    /**
-     * Predict state trajectory (rollout)
-     */
+    async messages(request) {
+        return this.post('/v1/messages', request);
+    }
     async rollout(request) {
-        return this.request('/v1/rollout', request);
+        return this.post('/v1/rollout', request);
     }
-    /**
-     * Make an HTTP request with retries
-     */
-    async request(endpoint, body) {
-        let lastError = null;
-        for (let attempt = 0; attempt < this.retries; attempt++) {
-            try {
-                const response = await fetch(`${this.apiUrl}${endpoint}`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${this.apiKey}`,
-                    },
-                    body: JSON.stringify(body),
-                    signal: AbortSignal.timeout(this.timeout),
-                });
-                if (!response.ok) {
-                    const error = await response.json();
-                    throw new Error(error.error.message || `Request failed: ${response.status}`);
-                }
-                return await response.json();
-            }
-            catch (error) {
-                lastError = error instanceof Error ? error : new Error(String(error));
-                // Don't retry on auth errors or client errors
-                if (lastError.message.includes('401') || lastError.message.includes('400')) {
-                    throw lastError;
-                }
-                // Exponential backoff
-                if (attempt < this.retries - 1) {
-                    await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 1000));
-                }
-            }
-        }
-        throw lastError || new Error('Request failed after retries');
+    async embeddings(request) {
+        return this.post('/v1/embeddings', request);
     }
-    /**
-     * Check API health
-     */
     async health() {
         const response = await fetch(`${this.apiUrl}/health`, {
             signal: AbortSignal.timeout(5000),
         });
         if (!response.ok) {
-            throw new Error(`Health check failed: ${response.status}`);
+            await this.throwFromResponse(response);
         }
-        return await response.json();
+        return response.json();
     }
-    /**
-     * Get compression ratio estimate
-     */
+    async listModels() {
+        const response = await fetch(`${this.apiUrl}/v1/models`, {
+            signal: AbortSignal.timeout(this.timeout),
+        });
+        if (!response.ok) {
+            await this.throwFromResponse(response);
+        }
+        return response.json();
+    }
+    get account() {
+        return {
+            llmKeys: {
+                set: async (keys) => {
+                    return this.post('/v1/account/llm-keys', keys);
+                },
+                get: async () => {
+                    return this.get('/v1/account/llm-keys');
+                },
+                delete: async (provider) => {
+                    const url = provider
+                        ? `/v1/account/llm-keys?provider=${encodeURIComponent(provider)}`
+                        : '/v1/account/llm-keys';
+                    return this.delete(url);
+                },
+            },
+        };
+    }
+    get credits() {
+        return {
+            packages: async () => {
+                const response = await fetch(`${this.apiUrl}/v1/credits/packages`, {
+                    signal: AbortSignal.timeout(this.timeout),
+                });
+                if (!response.ok) {
+                    await this.throwFromResponse(response);
+                }
+                return response.json();
+            },
+            purchase: async (pkg, paymentHeader) => {
+                const response = await fetch(`${this.apiUrl}/v1/credits/purchase/${encodeURIComponent(pkg)}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-PAYMENT': paymentHeader,
+                    },
+                    signal: AbortSignal.timeout(this.timeout),
+                });
+                if (!response.ok) {
+                    await this.throwFromResponse(response);
+                }
+                return response.json();
+            },
+        };
+    }
     getCompressionRatio() {
         const ratios = {
-            'Low': 15.2,
-            'Medium': 16.8,
-            'High': 18.5,
-            'VeryHigh': 20.0,
+            Low: 15.2,
+            Medium: 16.8,
+            High: 18.5,
+            VeryHigh: 20.0,
         };
-        return `${ratios[this.compressionProfile] || 15.2}x`;
+        return `${ratios[this.compressionProfile] ?? 15.2}x`;
     }
-    /**
-     * Get quality score estimate
-     */
     getQualityScore() {
         const scores = {
-            'Low': 99.9,
-            'Medium': 99.7,
-            'High': 99.5,
-            'VeryHigh': 99.0,
+            Low: 99.9,
+            Medium: 99.7,
+            High: 99.5,
+            VeryHigh: 99.0,
         };
-        return scores[this.compressionProfile] || 99.7;
+        return scores[this.compressionProfile] ?? 99.7;
+    }
+    buildHeaders() {
+        return {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${this.apiKey}`,
+            'x-api-key': this.apiKey,
+        };
+    }
+    async post(endpoint, body) {
+        return this.requestWithRetry('POST', endpoint, body);
+    }
+    async get(endpoint) {
+        return this.requestWithRetry('GET', endpoint);
+    }
+    async delete(endpoint) {
+        return this.requestWithRetry('DELETE', endpoint);
+    }
+    async requestWithRetry(method, endpoint, body) {
+        let lastError = null;
+        for (let attempt = 0; attempt < this.retries; attempt++) {
+            try {
+                const init = {
+                    method,
+                    headers: this.buildHeaders(),
+                    signal: AbortSignal.timeout(this.timeout),
+                };
+                if (body !== undefined) {
+                    init.body = JSON.stringify(body);
+                }
+                const response = await fetch(`${this.apiUrl}${endpoint}`, init);
+                if (!response.ok) {
+                    await this.throwFromResponse(response);
+                }
+                return await response.json();
+            }
+            catch (error) {
+                if (error instanceof StratusAPIError) {
+                    if (error.status === 401 || error.status === 400 || error.status === 422) {
+                        throw error;
+                    }
+                }
+                lastError = error instanceof Error ? error : new Error(String(error));
+                if (attempt < this.retries - 1) {
+                    await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 1000));
+                }
+            }
+        }
+        throw lastError ?? new Error('Request failed after retries');
+    }
+    async throwFromResponse(response) {
+        let body;
+        try {
+            body = await response.json();
+        }
+        catch {
+            throw new StratusAPIError(`HTTP ${response.status}`, response.status, 'api_error');
+        }
+        const errorBody = body;
+        if (errorBody?.error) {
+            throw new StratusAPIError(errorBody.error.message, response.status, errorBody.error.type, errorBody.error.param, errorBody.error.code);
+        }
+        throw new StratusAPIError(`HTTP ${response.status}`, response.status, 'api_error');
     }
 }
 exports.MJepaGClient = MJepaGClient;

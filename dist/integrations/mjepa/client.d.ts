@@ -1,72 +1,61 @@
 /**
- * M-JEPA-G API Client
+ * Stratus API Client
  *
- * Type-safe TypeScript client for the deployed M-JEPA-G API server.
+ * Type-safe TypeScript client for the Stratus API.
  *
- * @purpose Production-ready client for M-JEPA-G world model interactions
- * @spec Plan: M-JEPA-G Ecosystem Integration
+ * @purpose Production-ready client for Stratus API interactions
  */
-import { MJepaClientConfig, ChatCompletionRequest, ChatCompletionResponse, ChatCompletionChunk, RolloutRequest, RolloutResponse } from './types.js';
-/**
- * M-JEPA-G API Client
- *
- * Provides type-safe access to M-JEPA-G endpoints:
- * - Chat completions (OpenAI-compatible)
- * - State rollout (trajectory prediction)
- * - Streaming support
- * - Built-in error handling and retries
- */
+import { MJepaClientConfig, ChatCompletionRequest, ChatCompletionResponse, ChatCompletionChunk, RolloutRequest, RolloutResponse, HealthResponse, ModelsListResponse, EmbeddingRequest, EmbeddingResponse, AnthropicRequest, AnthropicResponse, SetLLMKeysRequest, GetLLMKeysResponse, LLMProvider, CreditPackagesResponse, CreditPackageName, CreditPurchaseResponse, StratusErrorType } from './types.js';
+export declare class StratusAPIError extends Error {
+    status: number;
+    errorType: StratusErrorType;
+    param?: string;
+    code?: string;
+    constructor(message: string, status: number, errorType: StratusErrorType, param?: string, code?: string);
+}
 export declare class MJepaGClient {
     private apiUrl;
     private apiKey;
     private timeout;
     private retries;
-    private compressionProfile;
+    readonly compressionProfile: string;
     constructor(config: MJepaClientConfig);
-    /**
-     * Chat completions API (OpenAI-compatible)
-     */
     get chat(): {
         completions: {
-            /**
-             * Create a chat completion
-             */
             create: (request: ChatCompletionRequest) => Promise<ChatCompletionResponse>;
-            /**
-             * Stream a chat completion
-             */
             stream: (request: ChatCompletionRequest) => AsyncGenerator<ChatCompletionChunk, any, any>;
         };
     };
-    /**
-     * Create a chat completion (non-streaming)
-     */
     private createChatCompletion;
-    /**
-     * Stream a chat completion
-     */
     private streamChatCompletion;
-    /**
-     * Predict state trajectory (rollout)
-     */
+    messages(request: AnthropicRequest): Promise<AnthropicResponse>;
     rollout(request: RolloutRequest): Promise<RolloutResponse>;
-    /**
-     * Make an HTTP request with retries
-     */
-    private request;
-    /**
-     * Check API health
-     */
-    health(): Promise<{
-        status: string;
-        model_loaded: boolean;
-    }>;
-    /**
-     * Get compression ratio estimate
-     */
+    embeddings(request: EmbeddingRequest): Promise<EmbeddingResponse>;
+    health(): Promise<HealthResponse>;
+    listModels(): Promise<ModelsListResponse>;
+    get account(): {
+        llmKeys: {
+            set: (keys: SetLLMKeysRequest) => Promise<{
+                success: boolean;
+                message: string;
+            }>;
+            get: () => Promise<GetLLMKeysResponse>;
+            delete: (provider?: LLMProvider) => Promise<{
+                success: boolean;
+                message: string;
+            }>;
+        };
+    };
+    get credits(): {
+        packages: () => Promise<CreditPackagesResponse>;
+        purchase: (pkg: CreditPackageName, paymentHeader: string) => Promise<CreditPurchaseResponse>;
+    };
     getCompressionRatio(): string;
-    /**
-     * Get quality score estimate
-     */
     getQualityScore(): number;
+    private buildHeaders;
+    private post;
+    private get;
+    private delete;
+    private requestWithRetry;
+    private throwFromResponse;
 }

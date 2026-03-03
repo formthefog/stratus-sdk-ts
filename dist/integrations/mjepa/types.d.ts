@@ -1,51 +1,120 @@
 /**
- * M-JEPA-G API Type Definitions
+ * Stratus API Type Definitions
  *
- * TypeScript types matching the deployed M-JEPA-G API server.
+ * TypeScript types matching the Stratus API server.
  *
- * @purpose Type-safe client for M-JEPA-G world model API
- * @spec Plan: M-JEPA-G Ecosystem Integration
+ * @purpose Type-safe definitions for the Stratus API
  */
-/**
- * Chat message role (OpenAI-compatible format)
- */
-export type MessageRole = 'system' | 'user' | 'assistant';
-/**
- * Chat message (OpenAI-compatible format)
- */
+export type MessageRole = 'system' | 'user' | 'assistant' | 'tool' | 'developer';
+export interface ContentBlock {
+    type: 'text' | 'image_url';
+    text?: string;
+    image_url?: {
+        url: string;
+        detail?: string;
+    };
+}
+export interface ToolCall {
+    id: string;
+    type: 'function';
+    function: {
+        name: string;
+        arguments: string;
+    };
+}
 export interface Message {
     role: MessageRole;
-    content: string;
+    content?: string | ContentBlock[];
+    tool_calls?: ToolCall[];
+    tool_call_id?: string;
+    name?: string;
 }
-/**
- * Chat completion request (matches api/models.py ChatCompletionRequest)
- */
+export interface ToolFunction {
+    name: string;
+    description?: string;
+    parameters?: Record<string, unknown>;
+}
+export interface ToolDefinition {
+    type: 'function';
+    function: ToolFunction;
+}
+export interface ToolChoiceObject {
+    type: 'function';
+    function: {
+        name: string;
+    };
+}
+export interface StratusExtensions {
+    mode?: 'plan' | 'validate' | 'rank' | 'hybrid';
+    validation_threshold?: number;
+    max_validation_retries?: number;
+    num_candidates?: number;
+    return_action_sequence?: boolean;
+}
 export interface ChatCompletionRequest {
-    messages: Message[];
     model: string;
-    temperature?: number;
+    messages: Message[];
     max_tokens?: number;
+    max_completion_tokens?: number;
+    temperature?: number;
+    top_p?: number;
+    n?: number;
     stream?: boolean;
+    stop?: string[];
+    presence_penalty?: number;
+    frequency_penalty?: number;
+    user?: string;
+    tools?: ToolDefinition[];
+    tool_choice?: string | ToolChoiceObject;
+    stream_options?: {
+        include_usage?: boolean;
+    };
+    store?: boolean;
+    stratus?: StratusExtensions;
+    openai_key?: string;
+    anthropic_key?: string;
+    gemini_key?: string;
+    openrouter_key?: string;
 }
-/**
- * Usage statistics
- */
 export interface Usage {
     prompt_tokens: number;
     completion_tokens: number;
     total_tokens: number;
 }
-/**
- * Chat completion choice
- */
+export interface ExecutionTraceStep {
+    step: number;
+    action: string;
+    response_summary: string;
+}
+export interface BrainSignal {
+    action_type: string;
+    confidence: number;
+    plan_ahead: string[];
+    simulation_confirmed: boolean;
+    goal_proximity: number;
+}
+export interface StratusMetadata {
+    stratus_model: string;
+    execution_llm: string;
+    action_sequence?: string[];
+    predicted_state_changes?: number[];
+    confidence_labels?: string[];
+    overall_confidence?: number;
+    steps_to_goal?: number;
+    planning_time_ms?: number;
+    execution_time_ms?: number;
+    total_steps_executed?: number;
+    execution_trace?: ExecutionTraceStep[];
+    brain_signal?: BrainSignal;
+    confidence?: number;
+    key_source?: 'user' | 'formation';
+    formation_markup_applied?: number;
+}
 export interface ChatCompletionChoice {
     index: number;
     message: Message;
-    finish_reason: 'stop' | 'length' | 'error';
+    finish_reason: 'stop' | 'length' | 'tool_calls' | 'content_filter';
 }
-/**
- * Chat completion response (matches api/models.py ChatCompletionResponse)
- */
 export interface ChatCompletionResponse {
     id: string;
     object: 'chat.completion';
@@ -53,10 +122,8 @@ export interface ChatCompletionResponse {
     model: string;
     choices: ChatCompletionChoice[];
     usage: Usage;
+    stratus?: StratusMetadata;
 }
-/**
- * Chat completion chunk (streaming)
- */
 export interface ChatCompletionChunk {
     id: string;
     object: 'chat.completion.chunk';
@@ -65,64 +132,213 @@ export interface ChatCompletionChunk {
     choices: Array<{
         index: number;
         delta: Partial<Message>;
-        finish_reason: 'stop' | 'length' | 'error' | null;
+        finish_reason: string | null;
     }>;
+    usage?: Usage;
+    stratus?: StratusMetadata;
 }
-/**
- * Action with confidence score
- */
-export interface Action {
+export interface ActionStep {
     action_id: string;
     action_text: string;
     confidence: number;
 }
-/**
- * State prediction with action and metadata
- */
 export interface StatePrediction {
     step: number;
-    predicted_state: string;
-    action: Action;
+    action: ActionStep;
+    current_state: {
+        step: number;
+        magnitude: number;
+        confidence: 'High' | 'Medium' | 'Low';
+    };
+    predicted_state: {
+        step: number;
+        magnitude: number;
+        confidence: 'High' | 'Medium' | 'Low';
+    };
     state_change: number;
+    interpretation: string;
+    brain_confidence?: number;
+    brain_goal_proximity?: number;
 }
-/**
- * Rollout request (matches api/models.py RolloutRequest)
- */
 export interface RolloutRequest {
     goal: string;
     initial_state: string;
     max_steps?: number;
     return_intermediate?: boolean;
 }
-/**
- * Rollout response (matches api/models.py RolloutResponse)
- */
+export interface RolloutSummary {
+    total_steps: number;
+    initial_magnitude: number;
+    final_magnitude: number;
+    total_state_change: number;
+    outcome: string;
+    planner: 'brain' | 'action_planner';
+    action_path: string[];
+}
 export interface RolloutResponse {
     predictions: StatePrediction[];
-    summary: {
-        total_steps: number;
-        outcome: string;
-        final_state: string;
-    };
+    summary: RolloutSummary;
     usage: Usage;
 }
-/**
- * Error response from API
- */
-export interface ApiError {
+export interface HealthResponse {
+    status: 'healthy';
+    stratus_models_loaded: string[];
+    llm_providers: string[];
+    vault: 'connected' | 'disabled';
+    brain: {
+        loaded: boolean;
+        num_actions: number;
+    };
+    version: string;
+    git_sha: string;
+}
+export interface Model {
+    id: string;
+    object: 'model';
+    created: number;
+    owned_by: 'stratus';
+}
+export interface ModelsListResponse {
+    object: 'list';
+    data: Model[];
+}
+export interface EmbeddingRequest {
+    model: string;
+    input: string | string[];
+    encoding_format?: 'float' | 'base64';
+}
+export interface EmbeddingObject {
+    object: 'embedding';
+    index: number;
+    embedding: number[] | string;
+}
+export interface EmbeddingResponse {
+    object: 'list';
+    data: EmbeddingObject[];
+    model: string;
+    usage: {
+        prompt_tokens: number;
+        completion_tokens: 0;
+        total_tokens: number;
+    };
+}
+export type AnthropicContentBlock = {
+    type: 'text';
+    text: string;
+} | {
+    type: 'tool_use';
+    id: string;
+    name: string;
+    input: Record<string, unknown>;
+};
+export interface AnthropicTool {
+    name: string;
+    description: string;
+    input_schema: {
+        type: 'object';
+        properties: Record<string, unknown>;
+        required?: string[];
+    };
+}
+export interface AnthropicRequest {
+    model: string;
+    messages: Array<{
+        role: 'user' | 'assistant';
+        content: string | AnthropicContentBlock[];
+    }>;
+    max_tokens: number;
+    system?: string;
+    temperature?: number;
+    stream?: boolean;
+    stop_sequences?: string[];
+    metadata?: Record<string, unknown>;
+    tools?: AnthropicTool[];
+    tool_choice?: {
+        type: 'auto' | 'any' | 'tool';
+        name?: string;
+    };
+}
+export interface AnthropicResponse {
+    id: string;
+    type: 'message';
+    role: 'assistant';
+    content: AnthropicContentBlock[];
+    model: string;
+    stop_reason: 'end_turn' | 'max_tokens' | 'stop_sequence' | 'tool_use';
+    stop_sequence: string | null;
+    usage: {
+        input_tokens: number;
+        output_tokens: number;
+    };
+    stratus?: StratusMetadata;
+}
+export interface SetLLMKeysRequest {
+    openai_key?: string;
+    anthropic_key?: string;
+    google_key?: string;
+    openrouter_key?: string;
+}
+export interface GetLLMKeysResponse {
+    has_openai_key: boolean;
+    has_anthropic_key: boolean;
+    has_google_key: boolean;
+    has_openrouter_key: boolean;
+    openai_last_validated: string | null;
+    anthropic_last_validated: string | null;
+    google_last_validated: string | null;
+    openrouter_last_validated: string | null;
+    formation_keys_available: boolean;
+}
+export type LLMProvider = 'openai' | 'anthropic' | 'google' | 'openrouter';
+export type CreditPackageName = 'starter' | 'pro' | 'enterprise';
+export interface CreditPackage {
+    name: CreditPackageName;
+    label: string;
+    description: string;
+    credits: number;
+    amount_usdc: number;
+    amount_micro_usdc: number;
+}
+export interface CreditPackagesResponse {
+    packages: CreditPackage[];
+    network: string;
+    asset: string;
+    testnet: boolean;
+}
+export interface CreditPurchaseResponse {
+    success: true;
+    package: string;
+    credits_added: number;
+    tx_hash: string;
+    user_id: string;
+    new_balance_units: number;
+    created_account: boolean;
+    stratus_api_key?: string;
+    idempotent?: boolean;
+}
+export interface PaymentChallenge {
+    error: 'payment_required';
+    x402: unknown;
+}
+export type StratusErrorType = 'invalid_model' | 'model_not_loaded' | 'llm_provider_error' | 'llm_provider_not_configured' | 'planning_failed' | 'rate_limit' | 'authentication_error' | 'insufficient_credits' | 'internal_error' | 'api_error' | 'validation_error';
+export interface StratusErrorResponse {
     error: {
         message: string;
-        type: string;
+        type: StratusErrorType;
+        param?: string;
         code?: string;
     };
 }
-/**
- * M-JEPA-G client configuration
- */
+export interface InsufficientCreditsErrorResponse extends StratusErrorResponse {
+    required_credits: number;
+    available_credits: number;
+    x402: unknown;
+    top_up_url: string;
+}
 export interface MJepaClientConfig {
     /**
      * API base URL
-     * @default 'http://212.115.124.137:8000'
+     * @default 'https://api.stratus.run'
      */
     apiUrl?: string;
     /**
@@ -145,37 +361,13 @@ export interface MJepaClientConfig {
      */
     compressionProfile?: 'Low' | 'Medium' | 'High' | 'VeryHigh';
 }
-/**
- * Trajectory prediction options
- */
 export interface TrajectoryOptions {
-    /**
-     * Initial state description
-     */
     initialState: string;
-    /**
-     * Goal to achieve
-     */
     goal: string;
-    /**
-     * Maximum steps to predict
-     * @default 10
-     */
     maxSteps?: number;
-    /**
-     * Return intermediate states
-     * @default true
-     */
     returnIntermediate?: boolean;
-    /**
-     * Quality threshold (0-100)
-     * @default 80
-     */
     qualityThreshold?: number;
 }
-/**
- * Trajectory result with quality metrics
- */
 export interface TrajectoryResult {
     predictions: StatePrediction[];
     summary: {
@@ -184,45 +376,17 @@ export interface TrajectoryResult {
         qualityScore: number;
         actions: string[];
         outcome: string;
-        finalState: string;
+        actionPath: string[];
     };
     usage: Usage;
 }
-/**
- * Batch trajectory options
- */
 export interface BatchTrajectoryOptions {
-    /**
-     * Maximum concurrent requests
-     * @default 5
-     */
     maxConcurrent?: number;
-    /**
-     * Progress callback
-     */
     onProgress?: (completed: number, total: number) => void;
-    /**
-     * Quality threshold for filtering
-     * @default 80
-     */
     qualityThreshold?: number;
 }
-/**
- * Optimization criteria for trajectory selection
- */
 export interface OptimizationCriteria {
-    /**
-     * Minimum quality score
-     * @default 80
-     */
     minQuality?: number;
-    /**
-     * Maximum steps allowed
-     * @default 10
-     */
     maxSteps?: number;
-    /**
-     * Custom cost function (higher = better)
-     */
     costFunction?: (prediction: StatePrediction) => number;
 }

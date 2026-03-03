@@ -1,4 +1,6 @@
 /**
+ * Stratus SDK - Vector Database Integrations
+ *
  * @purpose Vector database integrations for transparent compression
  */
 export { StratusAdapter } from './base.js';

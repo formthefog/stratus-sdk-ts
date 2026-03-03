@@ -1,10 +1,9 @@
 /**
- * Stratus Embeddings Compression SDK
+ * Stratus SDK
  *
- * High-performance vector compression for embedding vectors.
- * Compress by 10-20x with minimal quality loss.
+ * TypeScript SDK for the Stratus API with embedding compression utilities.
  *
- * @purpose Main entry point for Stratus compression SDK
+ * @purpose Main entry point for the Stratus SDK
  */
 export { compress, compressBatch } from './compress.js';
 export { decompress, decompressBatch } from './decompress.js';
@@ -16,7 +15,7 @@ export { MJEPA_768_HIGH_QUALITY, MJEPA_768_BALANCED, MJEPA_768_HIGH_COMPRESSION,
 export { analyzeQuality, euclideanDistance, manhattanDistance, dimensionErrors, calculateStats, recallAtK, ndcg, calculateRankingMetrics, } from './quality/index.js';
 export type { QualityMetrics, QualityReport, QualityAnalysisOptions, StatsSummary, RankingMetrics, DistributionMetrics, } from './quality/index.js';
 export { StratusAdapter, StratusPinecone, StratusWeaviate, StratusQdrant, } from './integrations/index.js';
-export { MJepaGClient, TrajectoryPredictor, ModelComparison, compareModels, SimpleCache, RateLimiter, CreditMonitor, HealthChecker, BatchProcessor, retryWithBackoff, generateCacheKey, } from './integrations/mjepa/index.js';
-export type { MJepaClientConfig, Message, MessageRole, ChatCompletionRequest, ChatCompletionResponse, ChatCompletionChunk, RolloutRequest, RolloutResponse, StatePrediction, Action, TrajectoryOptions, TrajectoryResult, BatchTrajectoryOptions, OptimizationCriteria, Usage, ModelName, TaskType, ModelMetrics, ComparisonOptions, ComparisonResult, } from './integrations/mjepa/index.js';
+export { MJepaGClient, StratusAPIError, TrajectoryPredictor, ModelComparison, compareModels, SimpleCache, RateLimiter, CreditMonitor, HealthChecker, BatchProcessor, retryWithBackoff, generateCacheKey, } from './integrations/mjepa/index.js';
+export type { MJepaClientConfig, Message, MessageRole, ContentBlock, ToolCall, ToolDefinition, ToolChoiceObject, StratusExtensions, ChatCompletionRequest, ChatCompletionResponse, ChatCompletionChunk, Usage, StratusMetadata, ExecutionTraceStep, BrainSignal, ActionStep, StatePrediction, RolloutRequest, RolloutResponse, RolloutSummary, HealthResponse, Model, ModelsListResponse, EmbeddingRequest, EmbeddingResponse, EmbeddingObject, AnthropicRequest, AnthropicResponse, AnthropicContentBlock, AnthropicTool, SetLLMKeysRequest, GetLLMKeysResponse, LLMProvider, CreditPackageName, CreditPackage, CreditPackagesResponse, CreditPurchaseResponse, PaymentChallenge, StratusErrorType, StratusErrorResponse, InsufficientCreditsErrorResponse, TrajectoryOptions, TrajectoryResult, BatchTrajectoryOptions, OptimizationCriteria, ModelName, TaskType, ModelMetrics, ComparisonOptions, ComparisonResult, } from './integrations/mjepa/index.js';
 export type { StratusIntegrationConfig, ProgressUpdate, CostStats, CompressedVectorMetadata, MigrationProgress, PineconeVector, PineconeQueryParams, PineconeQueryResult, PineconeMatch, PineconeIndex, WeaviateObject, WeaviateQueryParams, WeaviateResult, WeaviateClient, QdrantPoint, QdrantSearchParams, QdrantSearchResult, QdrantClient, } from './integrations/index.js';
 export declare const VERSION = "0.1.0";

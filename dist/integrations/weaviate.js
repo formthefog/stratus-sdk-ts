@@ -1,58 +1,28 @@
 "use strict";
 /**
+ * Stratus SDK - Weaviate Integration
+ *
+ * Drop-in wrapper for Weaviate with transparent compression.
+ *
  * @purpose Weaviate vector database integration with transparent compression
  */
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.StratusWeaviate = void 0;
 const base_js_1 = require("./base.js");
-/**
- * Stratus-compressed Weaviate client
- *
- * Drop-in wrapper for Weaviate with transparent compression.
- *
- * @example
- * ```typescript
- * const client = new StratusWeaviate(weaviateClient, { level: 'Medium' });
- *
- * // Create objects with compressed vectors
- * await client.createObject({
- *   class: 'Document',
- *   properties: { title: 'My doc' },
- *   vector: embedding
- * });
- *
- * // Query with compressed vectors
- * const results = await client.query({
- *   class: 'Document',
- *   vector: queryEmbedding,
- *   limit: 10
- * });
- * ```
- */
 class StratusWeaviate extends base_js_1.StratusAdapter {
-    /**
-     * Create a compressed Weaviate client
-     *
-     * @param client - Original Weaviate client instance
-     * @param config - Stratus compression configuration
-     */
     constructor(client, config) {
         super(config);
         this.client = client;
     }
-    /**
-     * Create a single object with compressed vector
-     *
-     * @param object - Object to create
-     * @returns Created object with ID
-     */
     async createObject(object) {
-        let creator = this.client.data.creator().withClassName(object.class).withProperties(object.properties);
+        let creator = this.client.data
+            .creator()
+            .withClassName(object.class)
+            .withProperties(object.properties);
         if (object.vector) {
             const vector = Array.isArray(object.vector) ? new Float32Array(object.vector) : object.vector;
             const compressed = this.compressVector(vector);
             const base64 = Buffer.from(compressed).toString('base64');
-            // Store compressed data in properties
             const properties = {
                 ...object.properties,
                 _stratus_compressed: true,
@@ -60,18 +30,10 @@ class StratusWeaviate extends base_js_1.StratusAdapter {
                 _stratus_original_dim: vector.length,
                 _stratus_data: base64,
             };
-            creator = creator.withProperties(properties);
-            // Use a minimal dummy vector
-            creator = creator.withVector([0]);
+            creator = creator.withProperties(properties).withVector([0]);
         }
         return creator.do();
     }
-    /**
-     * Create multiple objects in batch
-     *
-     * @param objects - Objects to create
-     * @returns Batch result
-     */
     async createObjects(objects) {
         const batches = this.createBatches(objects, this.config.batchSize);
         let processed = 0;
@@ -91,7 +53,7 @@ class StratusWeaviate extends base_js_1.StratusAdapter {
                         _stratus_original_dim: vector.length,
                         _stratus_data: base64,
                     },
-                    vector: [0], // Minimal placeholder
+                    vector: [0],
                 };
             });
             await this.client.batch.objectsBatcher().withObjects(compressedBatch).do();
@@ -99,22 +61,12 @@ class StratusWeaviate extends base_js_1.StratusAdapter {
             this.reportProgress('upsert', processed, objects.length);
         }
     }
-    /**
-     * Query with automatic compression/decompression
-     *
-     * @param params - Query parameters
-     * @returns Query results with decompressed vectors
-     */
     async query(params) {
         let query = this.client.graphql.get().withClassName(params.class);
         if (params.vector) {
-            const vector = Array.isArray(params.vector) ? new Float32Array(params.vector) : params.vector;
-            const compressed = this.compressVector(vector);
-            // For production, you'd need to implement custom similarity search
-            // This is a simplified version
             query = query.withNearVector({
-                vector: [0], // Placeholder
-                certainty: params.certainty || 0.7,
+                vector: [0],
+                certainty: params.certainty ?? 0.7,
             });
         }
         if (params.limit) {
@@ -122,14 +74,14 @@ class StratusWeaviate extends base_js_1.StratusAdapter {
         }
         query = query.withFields('_additional { id certainty } properties { _stratus_compressed _stratus_data }');
         const result = await query.do();
-        const results = result.data.Get[params.class] || [];
-        // Decompress vectors if needed
+        const results = result.data.Get[params.class] ?? [];
         if (this.config.autoDecompress) {
             return results.map((item) => {
-                if (item.properties._stratus_compressed && item.properties._stratus_data) {
-                    const compressed = Buffer.from(item.properties._stratus_data, 'base64');
+                const props = item.properties;
+                if (props._stratus_compressed && props._stratus_data) {
+                    const compressed = Buffer.from(props._stratus_data, 'base64');
                     const decompressed = this.decompressVector(new Uint8Array(compressed));
-                    const { _stratus_compressed, _stratus_level, _stratus_original_dim, _stratus_data, ...userProperties } = item.properties;
+                    const { _stratus_compressed: _c, _stratus_level: _l, _stratus_original_dim: _d, _stratus_data: _dd, ...userProperties } = props;
                     return {
                         ...item,
                         properties: userProperties,
@@ -141,19 +93,13 @@ class StratusWeaviate extends base_js_1.StratusAdapter {
         }
         return results;
     }
-    /**
-     * Get object by ID with automatic decompression
-     *
-     * @param className - Class name
-     * @param id - Object ID
-     * @returns Object with decompressed vector
-     */
     async getObject(className, id) {
         const result = await this.client.data.getter().withClassName(className).withId(id).do();
-        if (this.config.autoDecompress && result.properties._stratus_compressed && result.properties._stratus_data) {
-            const compressed = Buffer.from(result.properties._stratus_data, 'base64');
+        const props = result.properties;
+        if (this.config.autoDecompress && props._stratus_compressed && props._stratus_data) {
+            const compressed = Buffer.from(props._stratus_data, 'base64');
             const decompressed = this.decompressVector(new Uint8Array(compressed));
-            const { _stratus_compressed, _stratus_level, _stratus_original_dim, _stratus_data, ...userProperties } = result.properties;
+            const { _stratus_compressed: _c, _stratus_level: _l, _stratus_original_dim: _d, _stratus_data: _dd, ...userProperties } = props;
             return {
                 ...result,
                 properties: userProperties,
@@ -162,9 +108,6 @@ class StratusWeaviate extends base_js_1.StratusAdapter {
         }
         return result;
     }
-    /**
-     * Create batches from array
-     */
     createBatches(items, batchSize) {
         const batches = [];
         for (let i = 0; i < items.length; i += batchSize) {

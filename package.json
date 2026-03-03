@@ -1,16 +1,15 @@
 {
   "name": "@stratus/sdk",
   "version": "0.1.0",
-  "description": "Stratus Embeddings Compression SDK - 10-20x compression with minimal quality loss",
-  "type": "module",
+  "description": "Stratus SDK - TypeScript client for the Stratus API with embedding compression utilities",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
-    "test": "echo \"Tests coming in Phase 1\"",
-    "lint": "echo \"Linting coming in Phase 1\"",
-    "format": "echo \"Formatting coming in Phase 1\""
+    "test": "echo \"No test suite yet\"",
+    "lint": "echo \"No linter configured\"",
+    "format": "echo \"No formatter configured\""
   },
   "keywords": [
     "embeddings",

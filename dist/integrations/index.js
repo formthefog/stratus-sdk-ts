@@ -1,5 +1,7 @@
 "use strict";
 /**
+ * Stratus SDK - Vector Database Integrations
+ *
  * @purpose Vector database integrations for transparent compression
  */
 Object.defineProperty(exports, "__esModule", { value: true });

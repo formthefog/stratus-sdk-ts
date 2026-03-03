@@ -82,8 +82,13 @@ export declare class CreditMonitor {
         onCritical?: (balance: number) => void;
     });
     /**
-     * Check credit balance
-     * (Note: This would require a /credits endpoint on the API)
+     * Check credit balance.
+     *
+     * NOTE: Not yet implemented. A dedicated credits balance endpoint is not
+     * available on the Stratus API at this time. When an API call fails with
+     * insufficient_credits, the error response includes available_credits.
+     *
+     * TODO: Implement when a balance endpoint is available.
      */
     checkBalance(): Promise<{
         balance: number;
@@ -114,7 +119,7 @@ export declare class HealthChecker {
      */
     check(): Promise<{
         healthy: boolean;
-        modelLoaded: boolean;
+        modelsLoaded: string[];
         error?: string;
     }>;
     /**

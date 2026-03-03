@@ -1,10 +1,9 @@
 "use strict";
 /**
- * M-JEPA-G API Type Definitions
+ * Stratus API Type Definitions
  *
- * TypeScript types matching the deployed M-JEPA-G API server.
+ * TypeScript types matching the Stratus API server.
  *
- * @purpose Type-safe client for M-JEPA-G world model API
- * @spec Plan: M-JEPA-G Ecosystem Integration
+ * @purpose Type-safe definitions for the Stratus API
  */
 Object.defineProperty(exports, "__esModule", { value: true });

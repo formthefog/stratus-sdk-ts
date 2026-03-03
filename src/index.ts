@@ -1,19 +1,16 @@
 /**
- * Stratus Embeddings Compression SDK
+ * Stratus SDK
  *
- * High-performance vector compression for embedding vectors.
- * Compress by 10-20x with minimal quality loss.
+ * TypeScript SDK for the Stratus API with embedding compression utilities.
  *
- * @purpose Main entry point for Stratus compression SDK
+ * @purpose Main entry point for the Stratus SDK
  */
 
-// Core functions
 export { compress, compressBatch } from './compress.js';
 export { decompress, decompressBatch } from './decompress.js';
 export { getCompressionInfo } from './info.js';
 export { cosineSimilarity } from './similarity.js';
 
-// Types and enums
 export {
   CompressionLevel,
   type CompressionOptions,
@@ -21,7 +18,6 @@ export {
   type CompressionProfile,
 } from './types.js';
 
-// Model-specific profiles
 export {
   OPENAI_HIGH_QUALITY,
   OPENAI_BALANCED,
@@ -48,7 +44,6 @@ export {
   type MJepaProfile,
 } from './profiles/mjepa.js';
 
-// Quality analysis tools
 export {
   analyzeQuality,
   euclideanDistance,
@@ -60,7 +55,6 @@ export {
   calculateRankingMetrics,
 } from './quality/index.js';
 
-// Quality analysis types
 export type {
   QualityMetrics,
   QualityReport,
@@ -70,7 +64,6 @@ export type {
   DistributionMetrics,
 } from './quality/index.js';
 
-// Vector database integrations
 export {
   StratusAdapter,
   StratusPinecone,
@@ -78,9 +71,9 @@ export {
   StratusQdrant,
 } from './integrations/index.js';
 
-// M-JEPA-G integration
 export {
   MJepaGClient,
+  StratusAPIError,
   TrajectoryPredictor,
   ModelComparison,
   compareModels,
@@ -97,18 +90,48 @@ export type {
   MJepaClientConfig,
   Message,
   MessageRole,
+  ContentBlock,
+  ToolCall,
+  ToolDefinition,
+  ToolChoiceObject,
+  StratusExtensions,
   ChatCompletionRequest,
   ChatCompletionResponse,
   ChatCompletionChunk,
+  Usage,
+  StratusMetadata,
+  ExecutionTraceStep,
+  BrainSignal,
+  ActionStep,
+  StatePrediction,
   RolloutRequest,
   RolloutResponse,
-  StatePrediction,
-  Action,
+  RolloutSummary,
+  HealthResponse,
+  Model,
+  ModelsListResponse,
+  EmbeddingRequest,
+  EmbeddingResponse,
+  EmbeddingObject,
+  AnthropicRequest,
+  AnthropicResponse,
+  AnthropicContentBlock,
+  AnthropicTool,
+  SetLLMKeysRequest,
+  GetLLMKeysResponse,
+  LLMProvider,
+  CreditPackageName,
+  CreditPackage,
+  CreditPackagesResponse,
+  CreditPurchaseResponse,
+  PaymentChallenge,
+  StratusErrorType,
+  StratusErrorResponse,
+  InsufficientCreditsErrorResponse,
   TrajectoryOptions,
   TrajectoryResult,
   BatchTrajectoryOptions,
   OptimizationCriteria,
-  Usage,
   ModelName,
   TaskType,
   ModelMetrics,
@@ -116,7 +139,6 @@ export type {
   ComparisonResult,
 } from './integrations/mjepa/index.js';
 
-// Integration types
 export type {
   StratusIntegrationConfig,
   ProgressUpdate,
@@ -138,5 +160,4 @@ export type {
   QdrantClient,
 } from './integrations/index.js';
 
-// Version
 export const VERSION = '0.1.0';

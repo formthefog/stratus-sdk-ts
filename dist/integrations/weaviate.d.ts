@@ -1,61 +1,53 @@
 /**
+ * Stratus SDK - Weaviate Integration
+ *
+ * Drop-in wrapper for Weaviate with transparent compression.
+ *
  * @purpose Weaviate vector database integration with transparent compression
  */
 import { StratusAdapter } from './base.js';
 import { StratusIntegrationConfig } from './types.js';
-/**
- * Weaviate object
- */
 export interface WeaviateObject {
     id?: string;
     class: string;
-    properties: Record<string, any>;
+    properties: Record<string, unknown>;
     vector?: number[] | Float32Array;
 }
-/**
- * Weaviate query parameters
- */
 export interface WeaviateQueryParams {
     class: string;
     vector?: number[] | Float32Array;
     limit?: number;
     offset?: number;
-    where?: any;
+    where?: unknown;
     certainty?: number;
 }
-/**
- * Weaviate query result
- */
 export interface WeaviateResult {
     id: string;
     class: string;
-    properties: Record<string, any>;
+    properties: Record<string, unknown>;
     vector?: number[] | Float32Array;
     certainty?: number;
 }
-/**
- * Mock Weaviate Client interface (for typing)
- */
 export interface WeaviateClient {
     data: {
         creator(): {
-            withClassName(className: string): any;
-            withProperties(properties: Record<string, any>): any;
-            withVector(vector: number[]): any;
+            withClassName(className: string): WeaviateCreatorBuilder;
+            withProperties(properties: Record<string, unknown>): WeaviateCreatorBuilder;
+            withVector(vector: number[]): WeaviateCreatorBuilder;
             do(): Promise<WeaviateObject>;
         };
         getter(): {
-            withClassName(className: string): any;
-            withId(id: string): any;
+            withClassName(className: string): WeaviateGetterBuilder;
+            withId(id: string): WeaviateGetterBuilder;
             do(): Promise<WeaviateObject>;
         };
     };
     graphql: {
         get(): {
-            withClassName(className: string): any;
-            withNearVector(params: any): any;
-            withLimit(limit: number): any;
-            withFields(fields: string): any;
+            withClassName(className: string): WeaviateGraphQLBuilder;
+            withNearVector(params: unknown): WeaviateGraphQLBuilder;
+            withLimit(limit: number): WeaviateGraphQLBuilder;
+            withFields(fields: string): WeaviateGraphQLBuilder;
             do(): Promise<{
                 data: {
                     Get: Record<string, WeaviateResult[]>;
@@ -65,75 +57,44 @@ export interface WeaviateClient {
     };
     batch: {
         objectsBatcher(): {
-            withObjects(objects: WeaviateObject[]): any;
-            do(): Promise<any>;
+            withObjects(objects: WeaviateObject[]): WeaviateBatchBuilder;
+            do(): Promise<unknown>;
         };
     };
 }
-/**
- * Stratus-compressed Weaviate client
- *
- * Drop-in wrapper for Weaviate with transparent compression.
- *
- * @example
- * ```typescript
- * const client = new StratusWeaviate(weaviateClient, { level: 'Medium' });
- *
- * // Create objects with compressed vectors
- * await client.createObject({
- *   class: 'Document',
- *   properties: { title: 'My doc' },
- *   vector: embedding
- * });
- *
- * // Query with compressed vectors
- * const results = await client.query({
- *   class: 'Document',
- *   vector: queryEmbedding,
- *   limit: 10
- * });
- * ```
- */
+interface WeaviateCreatorBuilder {
+    withClassName(className: string): WeaviateCreatorBuilder;
+    withProperties(properties: Record<string, unknown>): WeaviateCreatorBuilder;
+    withVector(vector: number[]): WeaviateCreatorBuilder;
+    do(): Promise<WeaviateObject>;
+}
+interface WeaviateGetterBuilder {
+    withClassName(className: string): WeaviateGetterBuilder;
+    withId(id: string): WeaviateGetterBuilder;
+    do(): Promise<WeaviateObject>;
+}
+interface WeaviateGraphQLBuilder {
+    withClassName(className: string): WeaviateGraphQLBuilder;
+    withNearVector(params: unknown): WeaviateGraphQLBuilder;
+    withLimit(limit: number): WeaviateGraphQLBuilder;
+    withFields(fields: string): WeaviateGraphQLBuilder;
+    do(): Promise<{
+        data: {
+            Get: Record<string, WeaviateResult[]>;
+        };
+    }>;
+}
+interface WeaviateBatchBuilder {
+    withObjects(objects: WeaviateObject[]): WeaviateBatchBuilder;
+    do(): Promise<unknown>;
+}
 export declare class StratusWeaviate extends StratusAdapter {
     private client;
-    /**
-     * Create a compressed Weaviate client
-     *
-     * @param client - Original Weaviate client instance
-     * @param config - Stratus compression configuration
-     */
     constructor(client: WeaviateClient, config?: StratusIntegrationConfig);
-    /**
-     * Create a single object with compressed vector
-     *
-     * @param object - Object to create
-     * @returns Created object with ID
-     */
     createObject(object: WeaviateObject): Promise<WeaviateObject>;
-    /**
-     * Create multiple objects in batch
-     *
-     * @param objects - Objects to create
-     * @returns Batch result
-     */
-    createObjects(objects: WeaviateObject[]): Promise<any>;
-    /**
-     * Query with automatic compression/decompression
-     *
-     * @param params - Query parameters
-     * @returns Query results with decompressed vectors
-     */
+    createObjects(objects: WeaviateObject[]): Promise<void>;
     query(params: WeaviateQueryParams): Promise<WeaviateResult[]>;
-    /**
-     * Get object by ID with automatic decompression
-     *
-     * @param className - Class name
-     * @param id - Object ID
-     * @returns Object with decompressed vector
-     */
     getObject(className: string, id: string): Promise<WeaviateObject>;
-    /**
-     * Create batches from array
-     */
     private createBatches;
 }
+export {};

@@ -1,6 +1,6 @@
 # @stratus/sdk
 
-**Give your LLM agent a planning brain** · Add M-JEPA-G world model in 3 lines of code
+TypeScript SDK for the [Stratus API](https://stratus.run) with embedding compression utilities.
 
 [![npm version](https://img.shields.io/npm/v/@stratus/sdk)](https://www.npmjs.com/package/@stratus/sdk)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.3-blue)](https://www.typescriptlang.org/)
@@ -8,278 +8,351 @@
 
 ---
 
-## The Problem
+## Overview
 
-Your LLM agent (GPT-4, Claude, whatever) is smart. But it's **slow**, **expensive**, and **guesses** its way through multi-step tasks.
+`@stratus/sdk` provides a type-safe client for the Stratus API plus utilities for compressing embedding vectors by 10-20x with minimal quality loss.
 
-You're burning tokens on reasoning loops. Plans fail halfway through. You retry and hope.
-
-## The Fix
-
-Add a **world model** that predicts action sequences **before** your agent executes.
-
-**M-JEPA-G plans. Your LLM executes.** Best of both worlds.
-
-- **120ms planning** (vs 5-20s LLM reasoning)
-- **$0.10 per 1M tokens** (30x cheaper than Claude for planning)
-- **Validates before executing** (catch errors before expensive calls)
-- **Works with your LLM** (GPT-4, Claude, Gemini - you choose)
+**Base URL:** `https://api.stratus.run`
 
 ---
 
-## Quick Start
-
-### Install
+## Install
 
 ```bash
 npm install @stratus/sdk
 ```
 
-### Add to Your Agent (3 lines)
+---
 
-**Before:**
-```typescript
-// Your agent guesses the plan, crosses fingers
-const response = await openai.chat.completions.create({
-  messages: [{ role: 'user', content: 'Book a flight to NYC' }],
-  model: 'gpt-4',
-});
-await agent.execute(response);  // Hope it works
-```
+## Quick Start
 
-**After:**
+### Chat completions (OpenAI-compatible)
+
 ```typescript
 import { MJepaGClient } from '@stratus/sdk';
 
-// Add world model
-const planner = new MJepaGClient({
-  apiKey: process.env.STRATUS_API_KEY,
+const client = new MJepaGClient({
+  apiKey: process.env.STRATUS_API_KEY!,
 });
 
-// Get validated plan
-const plan = await planner.rollout({
+const response = await client.chat.completions.create({
+  model: 'stratus-x1ac-base-gpt-4o',
+  messages: [{ role: 'user', content: 'Hello' }],
+});
+
+console.log(response.choices[0].message.content);
+// Stratus metadata is available under response.stratus
+console.log(response.stratus?.execution_llm);
+```
+
+### Streaming
+
+```typescript
+for await (const chunk of client.chat.completions.stream({
+  model: 'stratus-x1ac-base-gpt-4o',
+  messages: [{ role: 'user', content: 'Count to 5' }],
+})) {
+  process.stdout.write(chunk.choices[0]?.delta?.content ?? '');
+}
+```
+
+### Trajectory prediction (rollout)
+
+```typescript
+const result = await client.rollout({
   goal: 'Book a flight to NYC',
   initial_state: 'On airline homepage',
   max_steps: 5,
 });
 
-// Execute only if safe
-if (plan.summary.outcome === 'success') {
-  for (const step of plan.predictions) {
-    await yourAgent.execute(step.action.action_text);
+console.log(result.summary.outcome);
+for (const step of result.predictions) {
+  console.log(step.action.action_text, step.state_change);
+}
+```
+
+### Embeddings
+
+```typescript
+const result = await client.embeddings({
+  model: 'stratus-x1ac-base',
+  input: ['Hello world', 'Another sentence'],
+});
+
+console.log(result.data[0].embedding); // number[]
+```
+
+---
+
+## API Reference
+
+### `new MJepaGClient(config)`
+
+```typescript
+interface MJepaClientConfig {
+  apiKey: string;           // Required. Used as Bearer token and x-api-key header.
+  apiUrl?: string;          // Default: 'https://api.stratus.run'
+  timeout?: number;         // Default: 30000ms
+  retries?: number;         // Default: 3 (with exponential backoff)
+  compressionProfile?: 'Low' | 'Medium' | 'High' | 'VeryHigh';
+}
+```
+
+### Endpoints
+
+#### `GET /health`
+
+```typescript
+const health = await client.health();
+// health.status === 'healthy'
+// health.stratus_models_loaded: string[]
+// health.llm_providers: string[]
+// health.brain: { loaded: boolean; num_actions: number }
+// health.version: string
+```
+
+#### `GET /v1/models`
+
+No auth required.
+
+```typescript
+const models = await client.listModels();
+// models.data[0].id: string (e.g. "stratus-x1ac-base-gpt-4o")
+```
+
+#### `POST /v1/chat/completions`
+
+```typescript
+const response = await client.chat.completions.create({
+  model: 'stratus-x1ac-base-gpt-4o',
+  messages: [{ role: 'user', content: '...' }],
+  temperature: 0.7,
+  max_tokens: 1000,
+  // Stratus hybrid orchestration (optional)
+  stratus: {
+    mode: 'plan',               // 'plan' | 'validate' | 'rank' | 'hybrid'
+    validation_threshold: 0.8,
+    return_action_sequence: true,
+  },
+  // Inline LLM keys (alternative to vault)
+  openai_key: 'sk-...',
+  anthropic_key: 'sk-ant-...',
+  openrouter_key: 'sk-or-...',
+});
+
+// response.stratus.action_sequence — planned actions
+// response.stratus.overall_confidence — 0-1
+// response.stratus.brain_signal — planning signal
+```
+
+Streaming:
+
+```typescript
+for await (const chunk of client.chat.completions.stream({ model, messages })) {
+  // chunk.stratus appears in first chunk
+}
+```
+
+#### `POST /v1/messages` (Anthropic format)
+
+```typescript
+const response = await client.messages({
+  model: 'stratus-x1ac-base-claude-3-5-sonnet',
+  messages: [{ role: 'user', content: 'Hello' }],
+  max_tokens: 1024,
+});
+
+// response.content[0].type === 'text'
+// response.stratus — Stratus metadata (extension)
+```
+
+#### `POST /v1/embeddings`
+
+```typescript
+const result = await client.embeddings({
+  model: 'stratus-x1ac-base',
+  input: 'Hello world',
+  encoding_format: 'float', // or 'base64'
+});
+```
+
+#### `POST /v1/rollout`
+
+```typescript
+const result = await client.rollout({
+  goal: 'Complete the checkout',
+  initial_state: 'Cart has 3 items',
+  max_steps: 10,
+  return_intermediate: true,
+});
+
+// result.summary.planner: 'brain' | 'action_planner'
+// result.summary.action_path: string[]
+// result.predictions[0].brain_confidence: number
+```
+
+#### `POST /v1/account/llm-keys`
+
+```typescript
+await client.account.llmKeys.set({
+  openai_key: 'sk-...',
+  anthropic_key: 'sk-ant-...',
+  google_key: '...',
+  openrouter_key: 'sk-or-...',
+});
+```
+
+#### `GET /v1/account/llm-keys`
+
+```typescript
+const keys = await client.account.llmKeys.get();
+// keys.has_openai_key: boolean
+// keys.has_openrouter_key: boolean
+// keys.formation_keys_available: boolean
+```
+
+#### `DELETE /v1/account/llm-keys`
+
+```typescript
+// Delete a specific provider's key
+await client.account.llmKeys.delete('openai');
+
+// Delete all keys
+await client.account.llmKeys.delete();
+```
+
+#### `GET /v1/credits/packages`
+
+No auth required.
+
+```typescript
+const { packages, network, asset } = await client.credits.packages();
+// packages[0]: { name: 'starter', credits: 1000, amount_usdc: 5, ... }
+// network: 'eip155:8453' (Base mainnet)
+```
+
+#### `POST /v1/credits/purchase/{package}`
+
+x402 payment flow. Auth comes from the wallet payment header.
+
+```typescript
+const result = await client.credits.purchase('starter', base64PaymentHeader);
+// result.credits_added: number
+// result.stratus_api_key — only on first-ever account creation
+```
+
+---
+
+## Error Handling
+
+```typescript
+import { StratusAPIError } from '@stratus/sdk';
+
+try {
+  await client.chat.completions.create({ ... });
+} catch (err) {
+  if (err instanceof StratusAPIError) {
+    console.log(err.status);       // HTTP status code
+    console.log(err.errorType);    // 'insufficient_credits' | 'rate_limit' | ...
+    console.log(err.message);      // Human-readable message
   }
 }
 ```
 
-**That's it.** Your agent now thinks before it acts.
+**Error types:**
+
+| Type | Meaning |
+|------|---------|
+| `authentication_error` | Invalid or missing API key |
+| `insufficient_credits` | Not enough credits; includes `x402` challenge |
+| `rate_limit` | Too many requests |
+| `invalid_model` | Model ID not recognized |
+| `model_not_loaded` | Model exists but not currently loaded |
+| `llm_provider_not_configured` | No LLM key set for the requested provider |
+| `llm_provider_error` | Upstream LLM call failed |
+| `planning_failed` | World model planning failed |
+| `internal_error` | Server error |
+| `validation_error` | Request validation failed |
 
 ---
 
-## What You Get
+## Stratus Metadata
 
-### 1. **Faster Iteration**
-Stop burning 20 seconds per planning loop. Get plans in 120ms.
-
-### 2. **Way Cheaper**
-Planning: $0.10 per 1M tokens (M-JEPA-G)
-Execution: $3 per 1M tokens (Claude) **only when needed**
-
-### 3. **Fewer Retries**
-World model catches errors **before** you execute. No more "oops, start over."
-
-### 4. **Keep Your LLM**
-Works with GPT-4, Claude, Gemini, Llama - whatever you're already using. Just add the planning layer.
-
----
-
-## Drop Into Your Stack
-
-### LangChain
+Every chat completion and rollout response can include a `.stratus` field:
 
 ```typescript
-import { MJepaGClient } from '@stratus/sdk';
-import { ChatOpenAI } from 'langchain/chat_models/openai';
-
-// Your existing setup
-const llm = new ChatOpenAI({ ... });
-
-// Add planning layer
-const planner = new MJepaGClient({
-  apiKey: process.env.STRATUS_API_KEY,
-});
-
-// Plan first, then execute
-const result = await planner.rollout({
-  goal: 'Complete the user task',
-  initial_state: 'Current context: ...',
-  max_steps: 5,
-});
-
-// Let your LLM execute the validated plan
-for (const step of result.predictions) {
-  await llm.call([{ role: 'user', content: step.action.action_text }]);
+interface StratusMetadata {
+  stratus_model: string;           // e.g. "stratus-x1ac-base"
+  execution_llm: string;           // e.g. "gpt-4o"
+  action_sequence?: string[];      // Planned action names
+  predicted_state_changes?: number[];
+  confidence_labels?: string[];
+  overall_confidence?: number;     // 0-1
+  steps_to_goal?: number;
+  planning_time_ms?: number;
+  execution_time_ms?: number;
+  execution_trace?: Array<{ step: number; action: string; response_summary: string }>;
+  brain_signal?: {
+    action_type: string;
+    confidence: number;
+    plan_ahead: string[];
+    simulation_confirmed: boolean;
+    goal_proximity: number;
+  };
+  key_source?: 'user' | 'formation';
+  formation_markup_applied?: number;
 }
 ```
 
-### Vercel AI SDK
+---
 
-```typescript
-import { MJepaGClient } from '@stratus/sdk';
-import { streamText } from 'ai';
+## Trajectory Predictor
 
-const client = new MJepaGClient({
-  apiKey: process.env.STRATUS_API_KEY,
-});
-
-// Use M-JEPA-G for planning, your LLM for execution
-const plan = await client.chat.completions.create({
-  messages: [{ role: 'user', content: 'Plan the workflow' }],
-  model: 'stratus-x1-ac',
-});
-
-// Continue with your normal flow
-const result = await streamText({
-  model: yourLLM,
-  prompt: `Execute this plan: ${plan.choices[0].message.content}`,
-});
-```
-
-### AutoGPT / Custom Agents
+Higher-level wrapper for rollout operations:
 
 ```typescript
 import { MJepaGClient, TrajectoryPredictor } from '@stratus/sdk';
 
-class MyAgent {
-  private planner: TrajectoryPredictor;
-  private executor: YourLLM;
-
-  constructor() {
-    const client = new MJepaGClient({
-      apiKey: process.env.STRATUS_API_KEY,
-    });
-    this.planner = new TrajectoryPredictor(client);
-    this.executor = new YourLLM();  // GPT-4, Claude, etc.
-  }
-
-  async executeTask(goal: string) {
-    // 1. World model plans the trajectory
-    const plan = await this.planner.predict({
-      initialState: this.getCurrentState(),
-      goal,
-      maxSteps: 10,
-    });
-
-    // 2. Validate quality
-    if (plan.summary.qualityScore < 80) {
-      return { error: 'Plan quality too low' };
-    }
-
-    // 3. Execute with your LLM
-    for (const action of plan.summary.actions) {
-      await this.executor.run(action);
-    }
-
-    return { success: plan.summary.goalAchieved };
-  }
-}
-```
-
----
-
-## The Pattern
-
-**Plan → Validate → Execute**
-
-```typescript
-// 1. PLAN (120ms, $0.0001)
-const plan = await planner.rollout({
-  goal: 'Book flight and hotel for NYC',
-  initial_state: 'On travel site',
-  max_steps: 10,
-});
-
-// 2. VALIDATE (instant)
-if (plan.summary.outcome !== 'success') {
-  console.log('Plan failed:', plan.summary.outcome);
-  return;
-}
-
-if (plan.summary.qualityScore < 85) {
-  console.log('Quality too low, trying different approach');
-  return;
-}
-
-// 3. EXECUTE (your LLM does the work)
-for (const step of plan.predictions) {
-  const result = await yourLLM.execute(step.action.action_text);
-  // Update state, continue
-}
-```
-
----
-
-## Advanced Features
-
-### Parallel Planning (Try Multiple Approaches)
-
-```typescript
-import { TrajectoryPredictor } from '@stratus/sdk';
-
+const client = new MJepaGClient({ apiKey: '...' });
 const predictor = new TrajectoryPredictor(client);
 
-// Generate 3 different plans in parallel
+// Single prediction
+const result = await predictor.predict({
+  initialState: 'On checkout page',
+  goal: 'Complete purchase',
+  maxSteps: 5,
+  qualityThreshold: 80,
+});
+
+console.log(result.summary.goalAchieved);
+console.log(result.summary.qualityScore);
+
+// Parallel predictions
 const plans = await predictor.predictMany([
   { initialState: '...', goal: 'Fast approach', maxSteps: 3 },
   { initialState: '...', goal: 'Safe approach', maxSteps: 5 },
-  { initialState: '...', goal: 'Optimal approach', maxSteps: 4 },
 ]);
 
-// Pick the best one
-const best = predictor.findOptimal(plans);
-console.log(`Using: ${best.summary.outcome}`);
-console.log(`Quality: ${best.summary.qualityScore}/100`);
+// Find the best plan
+const best = predictor.findOptimal(plans, { minQuality: 75 });
 ```
 
-### Streaming (Real-Time Plans)
+---
 
-```typescript
-// Stream plans as they're generated (just like ChatGPT)
-for await (const chunk of client.chat.completions.stream({
-  messages: [{ role: 'user', content: 'Plan the deployment steps.' }],
-  model: 'stratus-x1-ac',
-})) {
-  process.stdout.write(chunk.choices[0]?.delta?.content || '');
-}
-```
+## Production Utilities
 
-### Production Ready Out of the Box
+### Caching
 
-**Automatic Retries:**
-```typescript
-const client = new MJepaGClient({
-  apiKey: process.env.STRATUS_API_KEY,
-  retries: 3,  // Exponential backoff
-  timeout: 30000,
-});
-```
-
-**Caching (Reduce Costs):**
 ```typescript
 import { SimpleCache } from '@stratus/sdk';
 
-const cache = new SimpleCache(300); // 5-min TTL
-
-async function getPlan(goal: string) {
-  const cached = cache.get(goal);
-  if (cached) return cached;
-
-  const result = await client.rollout({ goal, initial_state: '...' });
-  cache.set(goal, result);
-  return result;
-}
+const cache = new SimpleCache<string>(300); // 5-min TTL
+cache.set('key', 'value');
+const val = cache.get('key');
 ```
 
-**Rate Limiting:**
+### Rate limiting
+
 ```typescript
 import { RateLimiter } from '@stratus/sdk';
 
@@ -288,182 +361,81 @@ await limiter.wait();
 const response = await client.chat.completions.create({ ... });
 ```
 
-**Health Checks:**
+### Health checks
+
 ```typescript
 import { HealthChecker } from '@stratus/sdk';
 
-const health = new HealthChecker(client, {
-  onUnhealthy: () => {
-    console.error('M-JEPA-G API is down!');
-  },
+const checker = new HealthChecker(client, {
+  onUnhealthy: () => console.error('API down'),
 });
 
-// Check on startup
-const status = await health.check();
-if (!status.healthy) {
-  throw new Error('API unavailable');
-}
+const status = await checker.check();
+// status.healthy: boolean
+// status.modelsLoaded: string[]
 
-// Monitor continuously
-health.startMonitoring(); // Checks every 60s
+checker.startMonitoring(); // polls every 60s
+```
+
+### Retry with backoff
+
+```typescript
+import { retryWithBackoff } from '@stratus/sdk';
+
+const result = await retryWithBackoff(
+  () => client.chat.completions.create({ ... }),
+  { maxRetries: 5, initialDelayMs: 500 }
+);
 ```
 
 ---
 
-## Why M-JEPA-G + Your LLM?
+## Vector Compression
 
-**You don't replace your LLM. You unlock it.**
-
-| Task | Best Tool | Why |
-|------|-----------|-----|
-| **Multi-step planning** | M-JEPA-G | 120ms, $0.0001, world model |
-| **Natural language** | Your LLM | Best at generation & interaction |
-| **Action validation** | M-JEPA-G | Catches errors before execution |
-| **Execution** | Your LLM | Does what it's best at |
-
-**The result:** Faster, cheaper, more reliable agents.
-
----
-
-## OpenAI-Compatible API
-
-Drop-in replacement for planning tasks:
-
-**Before (OpenAI):**
-```typescript
-import OpenAI from 'openai';
-
-const client = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
-
-const response = await client.chat.completions.create({
-  messages: [{ role: 'user', content: 'Plan the next steps.' }],
-  model: 'gpt-4',
-});
-```
-
-**After (M-JEPA-G):**
-```typescript
-import { MJepaGClient } from '@stratus/sdk';
-
-const client = new MJepaGClient({
-  apiKey: process.env.STRATUS_API_KEY,
-});
-
-const response = await client.chat.completions.create({
-  messages: [{ role: 'user', content: 'Plan the next steps.' }],
-  model: 'stratus-x1-ac',
-});
-```
-
-Same API. 10x faster. 10x cheaper.
-
----
-
-## Complete API
-
-### MJepaGClient
+Compress embedding vectors 10-20x with minimal quality loss.
 
 ```typescript
-// OpenAI-compatible
-client.chat.completions.create({ messages, model })
-client.chat.completions.stream({ messages, model })
+import { compress, decompress, cosineSimilarity, CompressionLevel } from '@stratus/sdk';
 
-// M-JEPA-G specific (trajectory prediction)
-client.rollout({ goal, initial_state, max_steps })
-client.health()
-```
+const embedding = new Float32Array(1536); // from OpenAI, Cohere, etc.
 
-### TrajectoryPredictor
+// Compress
+const compressed = compress(embedding, { level: CompressionLevel.Medium });
 
-```typescript
-predictor.predict({ initialState, goal, maxSteps })
-predictor.predictMany([...]) // Parallel
-predictor.findOptimal(plans) // Pick best
-predictor.compare(trajectories) // Compare
-```
-
-### Production Utilities
-
-```typescript
-new SimpleCache(ttlSeconds)       // Cache results
-new RateLimiter(reqPerSec)        // Throttle requests
-new HealthChecker(client, ...)    // Monitor API
-retryWithBackoff(fn, options)     // Auto-retry
-```
-
----
-
-## Bonus: Vector Compression
-
-**Need to store embeddings?** Stratus SDK also includes high-performance vector compression.
-
-Compress embeddings by 10-20x with minimal quality loss:
-
-```typescript
-import { compress, decompress, cosineSimilarity } from '@stratus/sdk';
-
-// Get embedding from your provider (OpenAI, Cohere, etc.)
-const embedding = new Float32Array(1536);
-// ... fill with actual embedding values
-
-// Compress (6144 bytes → ~600 bytes)
-const compressed = compress(embedding);
-
-// Decompress when needed
+// Decompress
 const restored = decompress(compressed);
 
 // Quality check
-const similarity = cosineSimilarity(embedding, restored);
-console.log(`Similarity: ${(similarity * 100).toFixed(2)}%`); // ~99.5%
+const sim = cosineSimilarity(embedding, restored);
+console.log(`${(sim * 100).toFixed(2)}%`); // ~99.5%
 ```
 
-**Perfect for:**
-- 🗄️ Vector databases (Pinecone, Chroma, Weaviate)
-- 💬 RAG systems with large document collections
-- 🔍 Semantic search at scale
-- 📦 Edge deployment with limited memory
+### Compression levels
 
-[See full compression documentation →](#vector-compression-reference)
+| Level | Ratio | Quality |
+|-------|-------|---------|
+| `Low` | ~5x | 99.5%+ |
+| `Medium` (default) | ~10x | 97-99% |
+| `High` | ~15x | 95-97% |
+| `VeryHigh` | ~20x | 90-95% |
 
----
+### Vector database integrations
 
-## Try It Now
+```typescript
+import { StratusPinecone, StratusWeaviate, StratusQdrant } from '@stratus/sdk';
 
-```bash
-npm install @stratus/sdk
-export STRATUS_API_KEY=your-key-here
-node demo-mjepa.js
-```
+// Pinecone — transparent compression on upsert/query
+const index = new StratusPinecone(pineconeIndex, { level: CompressionLevel.Medium });
+await index.upsert([{ id: '1', values: embedding }]);
+const results = await index.query({ vector: queryEmbedding, topK: 10 });
 
-Output shows:
-- ✅ Health check (API status)
-- ✅ Chat completion (OpenAI-compatible)
-- ✅ Trajectory prediction (multi-step planning)
-- ✅ Parallel planning (multiple approaches)
-- ✅ Streaming demo
+// Qdrant
+const qdrant = new StratusQdrant(qdrantClient, 'my-collection');
+await qdrant.upsert([{ id: 1, vector: embedding }]);
 
----
-
-## Testing
-
-```bash
-# Clone repository
-git clone https://github.com/formthefog/stratus-sdk-ts
-cd stratus-sdk-ts
-
-# Install dependencies
-npm install
-
-# Build
-npm run build
-
-# Run demo
-node demo-mjepa.js
-
-# Run compression demo
-node demo.js
+// Weaviate
+const weaviate = new StratusWeaviate(weaviateClient);
+await weaviate.createObject({ class: 'Doc', properties: {}, vector: embedding });
 ```
 
 ---
@@ -471,17 +443,9 @@ node demo.js
 ## Development
 
 ```bash
-# Install dependencies
 npm install
-
-# Build (compile TypeScript)
-npm run build
-
-# Watch mode (rebuild on changes)
-npm run dev
-
-# Link for local development
-npm link
+npm run build      # Compile TypeScript
+npm run dev        # Watch mode
 ```
 
 ---
@@ -492,257 +456,7 @@ npm link
 - **Documentation:** https://docs.stratus.run/sdk
 - **npm:** https://www.npmjs.com/package/@stratus/sdk
 - **GitHub:** https://github.com/formthefog/stratus-sdk-ts
-- **Issues:** https://github.com/formthefog/stratus-sdk-ts/issues
 
 ---
 
-## Support
-
-- 📖 [Full Documentation](https://docs.stratus.run)
-- 💬 [Discord Community](https://discord.gg/stratus)
-- 📧 [Email Support](mailto:support@stratus.run)
-
----
-
-## For AI Agents (Claude Code)
-
-**Using this SDK with Claude Code?** Check out [`CLAUDE.md`](./CLAUDE.md) for:
-- Vector compression patterns and levels
-- OpenAI embedding optimization profiles
-- Quality metrics and benchmarks
-- Vector database integration (Pinecone, Chroma)
-- Batch operations and performance tips
-
-The `CLAUDE.md` file provides context-aware instructions that Claude automatically loads when working with this SDK.
-
----
-
-## License
-
-MIT License - see [LICENSE](./LICENSE) file for details.
-
----
-
-**Built by [Formation](https://formation.ai)** · Making AI agents better, one world model at a time.
-
----
-
-# Vector Compression Reference
-
-<details>
-<summary><strong>Click to expand full compression documentation</strong></summary>
-
-## 🎯 Vector Compression
-
-Stratus SDK includes specialized compression for embedding vectors that achieves 10-20x size reduction while preserving semantic similarity.
-
-**Key Benefits:**
-- **10-20x smaller storage** - Reduce database size from GBs to MBs
-- **99%+ quality preserved** - Maintains cosine similarity and search ranking
-- **Fast compression** - 1000s of vectors/second
-- **Zero external dependencies** - Pure TypeScript implementation
-
----
-
-## Performance
-
-| Metric | Value | Notes |
-|--------|-------|-------|
-| **Compression Ratio** | 10-20x | vs Float32 (4 bytes/dim) |
-| **Quality (Cosine Similarity)** | 99%+ | Medium compression level |
-| **Compression Speed** | ~1000 vectors/sec | 1536-dim embeddings |
-| **Decompression Speed** | ~1500 vectors/sec | Single-threaded |
-| **Memory Overhead** | <1MB | No large tables needed |
-
-**Example:** 1M OpenAI embeddings (1536 dims)
-- **Original:** 1M × 1536 × 4 bytes = 5.9 GB
-- **Compressed:** 1M × 600 bytes = 600 MB
-- **Ratio:** **9.8x smaller**
-- **Quality:** 99.2% average cosine similarity
-
----
-
-## Basic Usage
-
-```typescript
-import { compress, decompress, cosineSimilarity } from '@stratus/sdk';
-
-// Get an embedding from your provider (OpenAI, Cohere, etc.)
-const embedding = new Float32Array(1536);
-// ... fill with actual embedding values
-
-// Compress (6144 bytes → ~600 bytes)
-const compressed = compress(embedding);
-
-// Decompress when needed
-const restored = decompress(compressed);
-
-// Quality check
-const similarity = cosineSimilarity(embedding, restored);
-console.log(`Similarity: ${(similarity * 100).toFixed(2)}%`); // ~99.5%
-```
-
----
-
-## Compression Levels
-
-```typescript
-import { compress, CompressionLevel } from '@stratus/sdk';
-
-// Low: 5x compression, 99.5%+ quality
-const compressed = compress(embedding, { level: CompressionLevel.Low });
-
-// Medium: 10x compression, 97-99% quality (default)
-const compressed = compress(embedding, { level: CompressionLevel.Medium });
-
-// High: 15x compression, 95-97% quality
-const compressed = compress(embedding, { level: CompressionLevel.High });
-
-// VeryHigh: 20x compression, 90-95% quality
-const compressed = compress(embedding, { level: CompressionLevel.VeryHigh });
-```
-
----
-
-## Batch Operations
-
-```typescript
-import { compressBatch, decompressBatch } from '@stratus/sdk';
-
-// Compress many vectors efficiently
-const embeddings = [
-  new Float32Array(1536),
-  new Float32Array(1536),
-  // ... more vectors
-];
-
-const compressed = compressBatch(embeddings);
-const restored = decompressBatch(compressed);
-```
-
----
-
-## Quality Analysis
-
-```typescript
-import { analyzeQuality } from '@stratus/sdk';
-
-// Compress your embeddings
-const compressed = compressBatch(embeddings);
-const restored = decompressBatch(compressed);
-
-// Analyze quality
-const report = analyzeQuality(embeddings, restored);
-
-console.log(report.summary);
-// "Quality Analysis: GOOD (Overall Score: 97.2%)"
-
-console.log(`Similarity: ${(report.metrics.cosineSimilarity.mean * 100).toFixed(2)}%`);
-console.log(`Ranking preserved: ${(report.metrics.rankingPreservation.recallAt10 * 100).toFixed(1)}%`);
-```
-
----
-
-## Use Cases
-
-### Compress Vector Database
-
-```typescript
-import { compressBatch, decompressBatch } from '@stratus/sdk';
-
-// Before: Store embeddings as Float32Array
-const embeddings = await generateEmbeddings(documents);
-await db.insertEmbeddings(embeddings); // 6 GB for 1M vectors
-
-// After: Compress before storing
-const compressed = compressBatch(embeddings);
-await db.insertCompressed(compressed); // 600 MB for 1M vectors
-
-// Query time: decompress on the fly
-const results = await db.searchCompressed(query, topK=10);
-const restored = decompressBatch(results);
-```
-
----
-
-## API Reference
-
-### Core Functions
-
-#### `compress(vector, options?): Uint8Array`
-
-Compress a vector embedding.
-
-**Parameters:**
-- `vector`: `Float32Array | number[]` - The embedding vector
-- `options` (optional):
-  - `level`: `CompressionLevel` - Compression level (default: `Medium`)
-  - `model`: `string` - Model hint for optimization
-  - `preservePrecision`: `number` - Min quality target 0-1
-
-**Returns:** `Uint8Array` - Compressed vector
-
----
-
-#### `decompress(compressed): Float32Array`
-
-Decompress a compressed vector.
-
-**Parameters:**
-- `compressed`: `Uint8Array` - Compressed vector from `compress()`
-
-**Returns:** `Float32Array` - Decompressed vector
-
----
-
-#### `compressBatch(vectors, options?): Uint8Array[]`
-
-Compress multiple vectors in batch.
-
-**Parameters:**
-- `vectors`: `(Float32Array | number[])[]` - Array of vectors
-- `options`: Same as `compress()`
-
-**Returns:** `Uint8Array[]` - Array of compressed vectors
-
----
-
-#### `decompressBatch(compressed): Float32Array[]`
-
-Decompress multiple compressed vectors.
-
-**Parameters:**
-- `compressed`: `Uint8Array[]` - Array of compressed vectors
-
-**Returns:** `Float32Array[]` - Array of decompressed vectors
-
----
-
-#### `cosineSimilarity(a, b): number`
-
-Compute cosine similarity between two vectors.
-
-**Parameters:**
-- `a`: `Float32Array | number[]` - First vector
-- `b`: `Float32Array | number[]` - Second vector
-
-**Returns:** `number` - Similarity score (0-1, where 1 = identical)
-
----
-
-#### `analyzeQuality(original, restored, options?): QualityReport`
-
-Comprehensive quality analysis for compressed vectors.
-
-**Parameters:**
-- `original`: `Float32Array[]` - Original uncompressed vectors
-- `restored`: `Float32Array[]` - Decompressed vectors
-- `options` (optional):
-  - `sampleSize`: `number` - Number of vectors to analyze
-  - `rankingQueries`: `number` - Number of queries for ranking tests
-  - `topK`: `number[]` - K values for recall
-  - `includeDimensionAnalysis`: `boolean` - Per-dimension analysis
-
-**Returns:** `QualityReport` - Comprehensive quality metrics
-
-</details>
+**Built by [Formation](https://formation.ai)**
