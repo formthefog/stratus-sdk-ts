@@ -1,5 +1,11 @@
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/stratus-x1-dark.png">
+    <img src="assets/stratus-x1-light.png" alt="Stratus X1" width="400">
+  </picture>
+</p>
+
 <div align="center">
-  <img src="https://stratus.run/logos/stratus-x1-hero.png" alt="Stratus X1" width="280" />
 
   <br />
   <br />
