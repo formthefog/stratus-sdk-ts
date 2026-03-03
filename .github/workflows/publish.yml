@@ -1,8 +1,17 @@
 # Publish to npm on version tag push (e.g. v1.0.0)
 #
-# Required secrets:
-#   NPM_TOKEN         — npm automation token with publish access to @formthefog scope
-#   ANTHROPIC_API_KEY — Claude API key for generating release notes (set via GitHub repo settings)
+# OIDC Trusted Publisher — no NPM_TOKEN required.
+#
+# Setup required (one-time):
+#   1. npmjs.com → package settings → Publishing → add GitHub trusted publisher
+#      - Repository: formthefog/stratus-sdk-ts
+#      - Environment: npm-publish
+#   2. GitHub repo settings → Environments → create "npm-publish" environment
+#   3. ANTHROPIC_API_KEY secret must be set in repo settings (already done)
+#
+# Secrets used:
+#   ANTHROPIC_API_KEY — Claude API key for release notes generation
+#   GITHUB_TOKEN      — automatically provided by Actions (for gh release create)
 
 name: Publish
 
@@ -11,13 +20,13 @@ on:
     tags:
       - 'v*'
 
-permissions:
-  id-token: write
-  contents: write
-
 jobs:
   publish:
     runs-on: ubuntu-latest
+    environment: npm-publish
+    permissions:
+      contents: write   # needed for gh release create
+      id-token: write   # needed for npm OIDC trusted publisher
 
     steps:
       - name: Checkout
@@ -30,7 +39,9 @@ jobs:
         with:
           node-version: '20'
           registry-url: 'https://registry.npmjs.org'
-          always-auth: true
+
+      - name: Install latest npm
+        run: npm install -g npm@latest
 
       - name: Install dependencies
         run: npm ci
@@ -113,8 +124,6 @@ jobs:
 
       - name: Publish to npm
         run: npm publish --provenance --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Create GitHub Release
         run: |
