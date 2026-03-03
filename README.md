@@ -16,7 +16,7 @@
 
 ## What is Stratus?
 
-Stratus X1 is a **predictive meaning model** that sits between your LLM and the environment. It understands where an agent is, simulates what happens next, and sequences actions toward a goal — before a single real action executes.
+Stratus X1 is a **predictive action model** that sits between your LLM and the environment. It understands where an agent is, simulates what happens next, and sequences actions toward a goal — before a single real action executes.
 
 Current LLM-based agents achieve **10–20% success rates** on real-world benchmarks. Human performance on the same tasks: **78%.** The gap isn't a prompting problem — it's structural. Agents fail because they have no state representation, no consequence prediction, and no way to plan across steps.
 
