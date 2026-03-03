@@ -29,9 +29,9 @@ npm install @stratus/sdk
 ### Chat completions (OpenAI-compatible)
 
 ```typescript
-import { MJepaGClient } from '@stratus/sdk';
+import { StratusClient } from '@stratus/sdk';
 
-const client = new MJepaGClient({
+const client = new StratusClient({
   apiKey: process.env.STRATUS_API_KEY!,
 });
 
@@ -86,10 +86,10 @@ console.log(result.data[0].embedding); // number[]
 
 ## API Reference
 
-### `new MJepaGClient(config)`
+### `new StratusClient(config)`
 
 ```typescript
-interface MJepaClientConfig {
+interface StratusClientConfig {
   apiKey: string;           // Required. Used as Bearer token and x-api-key header.
   apiUrl?: string;          // Default: 'https://api.stratus.run'
   timeout?: number;         // Default: 30000ms
@@ -311,9 +311,9 @@ interface StratusMetadata {
 Higher-level wrapper for rollout operations:
 
 ```typescript
-import { MJepaGClient, TrajectoryPredictor } from '@stratus/sdk';
+import { StratusClient, TrajectoryPredictor } from '@stratus/sdk';
 
-const client = new MJepaGClient({ apiKey: '...' });
+const client = new StratusClient({ apiKey: '...' });
 const predictor = new TrajectoryPredictor(client);
 
 // Single prediction

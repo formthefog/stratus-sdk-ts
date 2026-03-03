@@ -5,7 +5,7 @@
  *
  * @purpose Production-ready client for Stratus API interactions
  */
-import { MJepaClientConfig, ChatCompletionRequest, ChatCompletionResponse, ChatCompletionChunk, RolloutRequest, RolloutResponse, HealthResponse, ModelsListResponse, EmbeddingRequest, EmbeddingResponse, AnthropicRequest, AnthropicResponse, SetLLMKeysRequest, GetLLMKeysResponse, LLMProvider, CreditPackagesResponse, CreditPackageName, CreditPurchaseResponse, StratusErrorType } from './types.js';
+import { StratusClientConfig, ChatCompletionRequest, ChatCompletionResponse, ChatCompletionChunk, RolloutRequest, RolloutResponse, HealthResponse, ModelsListResponse, EmbeddingRequest, EmbeddingResponse, AnthropicRequest, AnthropicResponse, SetLLMKeysRequest, GetLLMKeysResponse, LLMProvider, CreditPackagesResponse, CreditPackageName, CreditPurchaseResponse, StratusErrorType } from './types.js';
 export declare class StratusAPIError extends Error {
     status: number;
     errorType: StratusErrorType;
@@ -13,13 +13,13 @@ export declare class StratusAPIError extends Error {
     code?: string;
     constructor(message: string, status: number, errorType: StratusErrorType, param?: string, code?: string);
 }
-export declare class MJepaGClient {
+export declare class StratusClient {
     private apiUrl;
     private apiKey;
     private timeout;
     private retries;
     readonly compressionProfile: string;
-    constructor(config: MJepaClientConfig);
+    constructor(config: StratusClientConfig);
     get chat(): {
         completions: {
             create: (request: ChatCompletionRequest) => Promise<ChatCompletionResponse>;

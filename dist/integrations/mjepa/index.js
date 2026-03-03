@@ -11,9 +11,9 @@
  * @purpose Comprehensive Stratus API integration
  */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.generateCacheKey = exports.retryWithBackoff = exports.BatchProcessor = exports.HealthChecker = exports.CreditMonitor = exports.RateLimiter = exports.SimpleCache = exports.compareModels = exports.ModelComparison = exports.TrajectoryPredictor = exports.StratusAPIError = exports.MJepaGClient = void 0;
+exports.generateCacheKey = exports.retryWithBackoff = exports.BatchProcessor = exports.HealthChecker = exports.CreditMonitor = exports.RateLimiter = exports.SimpleCache = exports.compareModels = exports.ModelComparison = exports.TrajectoryPredictor = exports.StratusAPIError = exports.StratusClient = void 0;
 var client_js_1 = require("./client.js");
-Object.defineProperty(exports, "MJepaGClient", { enumerable: true, get: function () { return client_js_1.MJepaGClient; } });
+Object.defineProperty(exports, "StratusClient", { enumerable: true, get: function () { return client_js_1.StratusClient; } });
 Object.defineProperty(exports, "StratusAPIError", { enumerable: true, get: function () { return client_js_1.StratusAPIError; } });
 var trajectory_js_1 = require("./trajectory.js");
 Object.defineProperty(exports, "TrajectoryPredictor", { enumerable: true, get: function () { return trajectory_js_1.TrajectoryPredictor; } });

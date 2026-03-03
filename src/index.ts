@@ -72,7 +72,7 @@ export {
 } from './integrations/index.js';
 
 export {
-  MJepaGClient,
+  StratusClient,
   StratusAPIError,
   TrajectoryPredictor,
   ModelComparison,
@@ -87,7 +87,7 @@ export {
 } from './integrations/mjepa/index.js';
 
 export type {
-  MJepaClientConfig,
+  StratusClientConfig,
   Message,
   MessageRole,
   ContentBlock,

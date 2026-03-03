@@ -6,7 +6,7 @@
  * @purpose Benchmark M-JEPA-G quality, performance, and cost
  * @spec Plan: M-JEPA-G Ecosystem Integration
  */
-import { MJepaGClient } from './client.js';
+import { StratusClient } from './client.js';
 /**
  * Model identifier
  */
@@ -77,7 +77,7 @@ export interface ComparisonResult {
  */
 export declare class ModelComparison {
     private mjepaClient?;
-    constructor(mjepaClient?: MJepaGClient);
+    constructor(mjepaClient?: StratusClient);
     /**
      * Run comparison across models
      */
@@ -102,4 +102,4 @@ export declare class ModelComparison {
 /**
  * Helper: Compare M-JEPA-G against other models
  */
-export declare function compareModels(options: ComparisonOptions, mjepaClient?: MJepaGClient): Promise<ComparisonResult>;
+export declare function compareModels(options: ComparisonOptions, mjepaClient?: StratusClient): Promise<ComparisonResult>;

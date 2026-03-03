@@ -6,7 +6,7 @@
  * @purpose Trajectory prediction, quality scoring, batch operations, optimization
  */
 
-import { MJepaGClient } from './client.js';
+import { StratusClient } from './client.js';
 import {
   TrajectoryOptions,
   TrajectoryResult,
@@ -17,10 +17,10 @@ import {
 } from './types.js';
 
 export class TrajectoryPredictor {
-  private client: MJepaGClient;
+  private client: StratusClient;
   private defaultQualityThreshold: number;
 
-  constructor(client: MJepaGClient, options?: { qualityThreshold?: number }) {
+  constructor(client: StratusClient, options?: { qualityThreshold?: number }) {
     this.client = client;
     this.defaultQualityThreshold = options?.qualityThreshold ?? 80;
   }

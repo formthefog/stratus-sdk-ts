@@ -7,7 +7,7 @@
  * @purpose Production-ready client for Stratus API interactions
  */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.MJepaGClient = exports.StratusAPIError = void 0;
+exports.StratusClient = exports.StratusAPIError = void 0;
 class StratusAPIError extends Error {
     constructor(message, status, errorType, param, code) {
         super(message);
@@ -19,7 +19,7 @@ class StratusAPIError extends Error {
     }
 }
 exports.StratusAPIError = StratusAPIError;
-class MJepaGClient {
+class StratusClient {
     constructor(config) {
         this.apiUrl = (config.apiUrl ?? 'https://api.stratus.run').replace(/\/$/, '');
         this.apiKey = config.apiKey;
@@ -241,4 +241,4 @@ class MJepaGClient {
         throw new StratusAPIError(`HTTP ${response.status}`, response.status, 'api_error');
     }
 }
-exports.MJepaGClient = MJepaGClient;
+exports.StratusClient = StratusClient;

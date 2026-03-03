@@ -10,7 +10,7 @@
  * @purpose Comprehensive Stratus API integration
  */
 
-export { MJepaGClient, StratusAPIError } from './client.js';
+export { StratusClient, StratusAPIError } from './client.js';
 export { TrajectoryPredictor } from './trajectory.js';
 export { ModelComparison, compareModels } from './comparison.js';
 
@@ -25,7 +25,7 @@ export {
 } from './helpers.js';
 
 export type {
-  MJepaClientConfig,
+  StratusClientConfig,
   Message,
   MessageRole,
   ContentBlock,

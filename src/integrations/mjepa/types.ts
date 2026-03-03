@@ -348,7 +348,7 @@ export interface InsufficientCreditsErrorResponse extends StratusErrorResponse {
   top_up_url: string;
 }
 
-export interface MJepaClientConfig {
+export interface StratusClientConfig {
   /**
    * API base URL
    * @default 'https://api.stratus.run'

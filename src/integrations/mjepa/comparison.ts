@@ -7,7 +7,7 @@
  * @spec Plan: M-JEPA-G Ecosystem Integration
  */
 
-import { MJepaGClient } from './client.js';
+import { StratusClient } from './client.js';
 
 /**
  * Model identifier
@@ -96,9 +96,9 @@ export interface ComparisonResult {
  * Model comparison framework
  */
 export class ModelComparison {
-  private mjepaClient?: MJepaGClient;
+  private mjepaClient?: StratusClient;
 
-  constructor(mjepaClient?: MJepaGClient) {
+  constructor(mjepaClient?: StratusClient) {
     this.mjepaClient = mjepaClient;
   }
 
@@ -283,7 +283,7 @@ export class ModelComparison {
  */
 export async function compareModels(
   options: ComparisonOptions,
-  mjepaClient?: MJepaGClient
+  mjepaClient?: StratusClient
 ): Promise<ComparisonResult> {
   const comparison = new ModelComparison(mjepaClient);
   return comparison.compare(options);

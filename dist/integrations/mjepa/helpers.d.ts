@@ -11,7 +11,7 @@
  * @purpose Production-ready utilities for M-JEPA-G integration
  * @spec Plan: M-JEPA-G Ecosystem Integration
  */
-import { MJepaGClient } from './client.js';
+import { StratusClient } from './client.js';
 /**
  * Simple in-memory cache with TTL
  */
@@ -75,7 +75,7 @@ export declare class CreditMonitor {
     private criticalThreshold;
     private onWarning?;
     private onCritical?;
-    constructor(client: MJepaGClient, options?: {
+    constructor(client: StratusClient, options?: {
         warningThreshold?: number;
         criticalThreshold?: number;
         onWarning?: (balance: number) => void;
@@ -110,7 +110,7 @@ export declare class HealthChecker {
     private client;
     private checkInterval;
     private unhealthyCallback?;
-    constructor(client: MJepaGClient, options?: {
+    constructor(client: StratusClient, options?: {
         checkIntervalSeconds?: number;
         onUnhealthy?: () => void;
     });

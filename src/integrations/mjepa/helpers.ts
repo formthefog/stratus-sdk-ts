@@ -12,7 +12,7 @@
  * @spec Plan: M-JEPA-G Ecosystem Integration
  */
 
-import { MJepaGClient } from './client.js';
+import { StratusClient } from './client.js';
 
 /**
  * Cache entry
@@ -144,14 +144,14 @@ export class RateLimiter {
  * Credit monitor for Stratus API
  */
 export class CreditMonitor {
-  private client: MJepaGClient;
+  private client: StratusClient;
   private warningThreshold: number;
   private criticalThreshold: number;
   private onWarning?: (balance: number) => void;
   private onCritical?: (balance: number) => void;
 
   constructor(
-    client: MJepaGClient,
+    client: StratusClient,
     options?: {
       warningThreshold?: number;
       criticalThreshold?: number;
@@ -206,12 +206,12 @@ export class CreditMonitor {
  * Health checker for M-JEPA-G API
  */
 export class HealthChecker {
-  private client: MJepaGClient;
+  private client: StratusClient;
   private checkInterval: number;
   private unhealthyCallback?: () => void;
 
   constructor(
-    client: MJepaGClient,
+    client: StratusClient,
     options?: {
       checkIntervalSeconds?: number;
       onUnhealthy?: () => void;

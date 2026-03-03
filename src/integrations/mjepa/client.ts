@@ -7,7 +7,7 @@
  */
 
 import {
-  MJepaClientConfig,
+  StratusClientConfig,
   ChatCompletionRequest,
   ChatCompletionResponse,
   ChatCompletionChunk,
@@ -51,14 +51,14 @@ export class StratusAPIError extends Error {
   }
 }
 
-export class MJepaGClient {
+export class StratusClient {
   private apiUrl: string;
   private apiKey: string;
   private timeout: number;
   private retries: number;
   readonly compressionProfile: string;
 
-  constructor(config: MJepaClientConfig) {
+  constructor(config: StratusClientConfig) {
     this.apiUrl = (config.apiUrl ?? 'https://api.stratus.run').replace(/\/$/, '');
     this.apiKey = config.apiKey;
     this.timeout = config.timeout ?? 30000;
@@ -76,7 +76,7 @@ export class MJepaGClient {
         },
 
         stream: async function* (
-          this: MJepaGClient,
+          this: StratusClient,
           request: ChatCompletionRequest
         ): AsyncGenerator<ChatCompletionChunk> {
           yield* this.streamChatCompletion(request);
