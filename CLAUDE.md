@@ -26,7 +26,7 @@ Use the Stratus TypeScript SDK when:
 ### 1. Basic Compression
 
 ```typescript
-import { compress, decompress, cosineSimilarity } from '@stratus/sdk';
+import { compress, decompress, cosineSimilarity } from '@formthefog/stratus-sdk-typescript';
 
 // Get embedding from your provider
 const embedding = new Float32Array(1536); // OpenAI embedding
@@ -46,7 +46,7 @@ console.log(`Similarity: ${(similarity * 100).toFixed(2)}%`); // ~99.5%
 ### 2. Compression Levels
 
 ```typescript
-import { compress, CompressionLevel } from '@stratus/sdk';
+import { compress, CompressionLevel } from '@formthefog/stratus-sdk-typescript';
 
 // Low: 5x compression, 99.5%+ quality
 const low = compress(embedding, { level: CompressionLevel.Low });
@@ -64,7 +64,7 @@ const ultra = compress(embedding, { level: CompressionLevel.VeryHigh });
 ### 3. Batch Operations
 
 ```typescript
-import { compressBatch, decompressBatch } from '@stratus/sdk';
+import { compressBatch, decompressBatch } from '@formthefog/stratus-sdk-typescript';
 
 // Compress many vectors efficiently
 const embeddings: Float32Array[] = [...];
@@ -77,8 +77,8 @@ const restored = decompressBatch(compressed);
 ### 4. Model-Specific Profiles
 
 ```typescript
-import { compress } from '@stratus/sdk';
-import { OPENAI_BALANCED, OPENAI_HIGH_QUALITY } from '@stratus/sdk/profiles';
+import { compress } from '@formthefog/stratus-sdk-typescript';
+import { OPENAI_BALANCED, OPENAI_HIGH_QUALITY } from '@formthefog/stratus-sdk-typescript/profiles';
 
 // Use OpenAI-optimized compression
 const compressed = compress(embedding, {
@@ -118,7 +118,7 @@ import {
   getOpenAIProfile,
   isOpenAIEmbedding,
   detectOpenAI
-} from '@stratus/sdk/profiles';
+} from '@formthefog/stratus-sdk-typescript/profiles';
 
 // Auto-detect and apply OpenAI profile
 if (detectOpenAI(embedding)) {
@@ -132,7 +132,7 @@ if (detectOpenAI(embedding)) {
 ### Pinecone
 
 ```typescript
-import { compress, decompress } from '@stratus/sdk';
+import { compress, decompress } from '@formthefog/stratus-sdk-typescript';
 import { Pinecone } from '@pinecone-database/pinecone';
 
 const pc = new Pinecone({ apiKey: '...' });
@@ -156,7 +156,7 @@ await index.upsert([{
 
 ```typescript
 import { ChromaClient } from 'chromadb';
-import { compress, decompress } from '@stratus/sdk';
+import { compress, decompress } from '@formthefog/stratus-sdk-typescript';
 
 const client = new ChromaClient();
 const collection = await client.getOrCreateCollection({ name: 'docs' });
@@ -181,7 +181,7 @@ import {
   euclideanDistance,
   dotProduct,
   computeStats
-} from '@stratus/sdk';
+} from '@formthefog/stratus-sdk-typescript';
 
 const original = new Float32Array(1536);
 const compressed = compress(original);
@@ -207,7 +207,7 @@ console.log(`
 ## Installation
 
 ```bash
-npm install @stratus/sdk
+npm install @formthefog/stratus-sdk-typescript
 ```
 
 **Requirements:** Node.js 16+ or modern browser
@@ -222,7 +222,7 @@ import type {
   CompressionLevel,
   CompressionStats,
   OpenAIProfile
-} from '@stratus/sdk';
+} from '@formthefog/stratus-sdk-typescript';
 
 const options: CompressionOptions = {
   level: CompressionLevel.Medium,
@@ -267,7 +267,7 @@ const embedding = new Float32Array(768); // Different dimension
 const compressed = compress(embedding); // Works for any size
 
 // Handle normalized vs unnormalized
-import { normalize } from '@stratus/sdk';
+import { normalize } from '@formthefog/stratus-sdk-typescript';
 const unnormalized = new Float32Array(1536);
 const normalized = normalize(unnormalized); // Better compression results
 
@@ -290,7 +290,7 @@ const compressed = compress(sparse); // May not compress much
 
 When implementing features with this SDK:
 
-1. **Import from @stratus/sdk** - Use package exports, not internal files
+1. **Import from @formthefog/stratus-sdk-typescript** - Use package exports, not internal files
 2. **Use TypeScript** - Leverage full type safety
 3. **Measure quality** - Always check cosine similarity for your use case
 4. **Profile-specific optimization** - Use OpenAI profile for OpenAI embeddings
@@ -299,7 +299,7 @@ When implementing features with this SDK:
 ## Testing
 
 ```typescript
-import { compress, decompress, cosineSimilarity } from '@stratus/sdk';
+import { compress, decompress, cosineSimilarity } from '@formthefog/stratus-sdk-typescript';
 
 // Generate test embedding
 function randomEmbedding(dims: number): Float32Array {
@@ -324,27 +324,27 @@ console.assert(similarity > 0.95, 'Quality check failed');
 ### Node.js
 
 ```typescript
-import { compress, decompress } from '@stratus/sdk';
+import { compress, decompress } from '@formthefog/stratus-sdk-typescript';
 // Works out of the box
 ```
 
 ### Browser
 
 ```typescript
-import { compress, decompress } from '@stratus/sdk';
+import { compress, decompress } from '@formthefog/stratus-sdk-typescript';
 // Also works - pure TypeScript, no Node dependencies
 ```
 
 ### Deno
 
 ```typescript
-import { compress, decompress } from 'npm:@stratus/sdk';
+import { compress, decompress } from 'npm:@formthefog/stratus-sdk-typescript';
 // Works with npm: specifier
 ```
 
 ### Cloudflare Workers
 
 ```typescript
-import { compress, decompress } from '@stratus/sdk';
+import { compress, decompress } from '@formthefog/stratus-sdk-typescript';
 // Works in Workers - no IO dependencies
 ```

@@ -1,5 +1,5 @@
 {
-  "name": "@stratus/sdk",
+  "name": "@formthefog/stratus-sdk-typescript",
   "version": "0.1.0",
   "description": "Stratus SDK - TypeScript client for the Stratus API with embedding compression utilities",
   "main": "dist/index.js",

@@ -1,8 +1,8 @@
-# @stratus/sdk
+# @formthefog/stratus-sdk-typescript
 
 TypeScript SDK for the [Stratus API](https://stratus.run) with embedding compression utilities.
 
-[![npm version](https://img.shields.io/npm/v/@stratus/sdk)](https://www.npmjs.com/package/@stratus/sdk)
+[![npm version](https://img.shields.io/npm/v/@formthefog/stratus-sdk-typescript)](https://www.npmjs.com/package/@formthefog/stratus-sdk-typescript)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.3-blue)](https://www.typescriptlang.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
@@ -10,7 +10,7 @@ TypeScript SDK for the [Stratus API](https://stratus.run) with embedding compres
 
 ## Overview
 
-`@stratus/sdk` provides a type-safe client for the Stratus API plus utilities for compressing embedding vectors by 10-20x with minimal quality loss.
+`@formthefog/stratus-sdk-typescript` provides a type-safe client for the Stratus API plus utilities for compressing embedding vectors by 10-20x with minimal quality loss.
 
 **Base URL:** `https://api.stratus.run`
 
@@ -19,7 +19,7 @@ TypeScript SDK for the [Stratus API](https://stratus.run) with embedding compres
 ## Install
 
 ```bash
-npm install @stratus/sdk
+npm install @formthefog/stratus-sdk-typescript
 ```
 
 ---
@@ -29,7 +29,7 @@ npm install @stratus/sdk
 ### Chat completions (OpenAI-compatible)
 
 ```typescript
-import { StratusClient } from '@stratus/sdk';
+import { StratusClient } from '@formthefog/stratus-sdk-typescript';
 
 const client = new StratusClient({
   apiKey: process.env.STRATUS_API_KEY!,
@@ -246,7 +246,7 @@ const result = await client.credits.purchase('starter', base64PaymentHeader);
 ## Error Handling
 
 ```typescript
-import { StratusAPIError } from '@stratus/sdk';
+import { StratusAPIError } from '@formthefog/stratus-sdk-typescript';
 
 try {
   await client.chat.completions.create({ ... });
@@ -311,7 +311,7 @@ interface StratusMetadata {
 Higher-level wrapper for rollout operations:
 
 ```typescript
-import { StratusClient, TrajectoryPredictor } from '@stratus/sdk';
+import { StratusClient, TrajectoryPredictor } from '@formthefog/stratus-sdk-typescript';
 
 const client = new StratusClient({ apiKey: '...' });
 const predictor = new TrajectoryPredictor(client);
@@ -344,7 +344,7 @@ const best = predictor.findOptimal(plans, { minQuality: 75 });
 ### Caching
 
 ```typescript
-import { SimpleCache } from '@stratus/sdk';
+import { SimpleCache } from '@formthefog/stratus-sdk-typescript';
 
 const cache = new SimpleCache<string>(300); // 5-min TTL
 cache.set('key', 'value');
@@ -354,7 +354,7 @@ const val = cache.get('key');
 ### Rate limiting
 
 ```typescript
-import { RateLimiter } from '@stratus/sdk';
+import { RateLimiter } from '@formthefog/stratus-sdk-typescript';
 
 const limiter = new RateLimiter(10); // 10 req/sec
 await limiter.wait();
@@ -364,7 +364,7 @@ const response = await client.chat.completions.create({ ... });
 ### Health checks
 
 ```typescript
-import { HealthChecker } from '@stratus/sdk';
+import { HealthChecker } from '@formthefog/stratus-sdk-typescript';
 
 const checker = new HealthChecker(client, {
   onUnhealthy: () => console.error('API down'),
@@ -380,7 +380,7 @@ checker.startMonitoring(); // polls every 60s
 ### Retry with backoff
 
 ```typescript
-import { retryWithBackoff } from '@stratus/sdk';
+import { retryWithBackoff } from '@formthefog/stratus-sdk-typescript';
 
 const result = await retryWithBackoff(
   () => client.chat.completions.create({ ... }),
@@ -395,7 +395,7 @@ const result = await retryWithBackoff(
 Compress embedding vectors 10-20x with minimal quality loss.
 
 ```typescript
-import { compress, decompress, cosineSimilarity, CompressionLevel } from '@stratus/sdk';
+import { compress, decompress, cosineSimilarity, CompressionLevel } from '@formthefog/stratus-sdk-typescript';
 
 const embedding = new Float32Array(1536); // from OpenAI, Cohere, etc.
 
@@ -422,7 +422,7 @@ console.log(`${(sim * 100).toFixed(2)}%`); // ~99.5%
 ### Vector database integrations
 
 ```typescript
-import { StratusPinecone, StratusWeaviate, StratusQdrant } from '@stratus/sdk';
+import { StratusPinecone, StratusWeaviate, StratusQdrant } from '@formthefog/stratus-sdk-typescript';
 
 // Pinecone — transparent compression on upsert/query
 const index = new StratusPinecone(pineconeIndex, { level: CompressionLevel.Medium });
@@ -454,7 +454,7 @@ npm run dev        # Watch mode
 
 - **Homepage:** https://stratus.run
 - **Documentation:** https://docs.stratus.run/sdk
-- **npm:** https://www.npmjs.com/package/@stratus/sdk
+- **npm:** https://www.npmjs.com/package/@formthefog/stratus-sdk-typescript
 - **GitHub:** https://github.com/formthefog/stratus-sdk-ts
 
 ---
