@@ -1,18 +1,36 @@
-# @formthefog/stratus-sdk-typescript
+<div align="center">
+  <img src="https://stratus.run/logos/stratus-x1-hero.png" alt="Stratus X1" width="280" />
 
-TypeScript SDK for the [Stratus API](https://stratus.run) with embedding compression utilities.
+  <br />
+  <br />
 
-[![npm version](https://img.shields.io/npm/v/@formthefog/stratus-sdk-typescript)](https://www.npmjs.com/package/@formthefog/stratus-sdk-typescript)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.3-blue)](https://www.typescriptlang.org/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+  <p><strong>TypeScript SDK for Stratus X1 — the predictive world model for AI agents.</strong></p>
+
+  [![npm version](https://img.shields.io/npm/v/@formthefog/stratus-sdk-typescript)](https://www.npmjs.com/package/@formthefog/stratus-sdk-typescript)
+  [![TypeScript](https://img.shields.io/badge/TypeScript-5.3-blue)](https://www.typescriptlang.org/)
+  [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+  [![Tests](https://img.shields.io/badge/tests-106%20passing-brightgreen)]()
+</div>
 
 ---
 
-## Overview
+## What is Stratus?
 
-`@formthefog/stratus-sdk-typescript` provides a type-safe client for the Stratus API plus utilities for compressing embedding vectors by 10-20x with minimal quality loss.
+Stratus X1 is a **predictive meaning model** that sits between your LLM and the environment. It understands where an agent is, simulates what happens next, and sequences actions toward a goal — before a single real action executes.
 
-**Base URL:** `https://api.stratus.run`
+Current LLM-based agents achieve **10–20% success rates** on real-world benchmarks. Human performance on the same tasks: **78%.** The gap isn't a prompting problem — it's structural. Agents fail because they have no state representation, no consequence prediction, and no way to plan across steps.
+
+Stratus solves this without replacing your LLM:
+
+- **State encoder** — compresses any observation (webpage, UI, tool response) into a rich semantic representation
+- **World model** — simulates what the environment looks like after each candidate action, in representation space, before anything executes
+- **Planning layer** — sequences actions toward the goal, returning a ranked plan with confidence at each step
+
+The result: **68% fewer tokens. 2–3× faster. 2× higher task success rate.**
+
+This SDK gives you full access to the Stratus API — chat completions (OpenAI and Anthropic formats), trajectory rollout, embeddings, LLM key management, and credits — plus embedding compression utilities and vector DB adapters for Pinecone, Weaviate, and Qdrant.
+
+**Docs:** [stratus.run/docs](https://stratus.run/docs) · **API:** [api.stratus.run](https://api.stratus.run) · **Dashboard:** [stratus.run](https://stratus.run)
 
 ---
 
