@@ -1,6 +1,6 @@
 {
   "name": "@formthefog/stratus-sdk-ts",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "Stratus SDK - TypeScript client for the Stratus API with embedding compression utilities",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
